@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import ImageSlotActions from './ImageSlotActions'
 
 interface ImageSlotProps {
@@ -31,7 +31,24 @@ function ImageSlot({
   const [isHovered, setIsHovered] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [fitMode, setFitMode] = useState<'fill' | 'cover'>('fill') // 기본값: 전체 표시 (왜곡 허용)
+  const [isDescriptionActive, setIsDescriptionActive] = useState(false) // 내용추가 버튼 클릭 시 활성화 상태
+  const [localDescription, setLocalDescription] = useState(description || '') // 로컬 state로 즉시 입력 반영
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // description prop이 변경되면 로컬 state 동기화
+  useEffect(() => {
+    if (description === undefined) {
+      setLocalDescription('')
+      setIsDescriptionActive(false)
+    } else {
+      setLocalDescription(description)
+      if (description && description.trim()) {
+        // 내용이 있으면 활성 상태 유지
+        setIsDescriptionActive(true)
+      }
+    }
+  }, [description])
 
   const handleClick = () => {
     if (!imageUrl) {
@@ -104,12 +121,15 @@ function ImageSlot({
       />
 
       {imageUrl ? (
-        <div className="w-full h-full flex flex-col" style={{ border: '1px dashed #000000' }}>
+        <div className="w-full h-full flex flex-col" style={{ border: '1px dashed #000000', overflow: 'hidden' }}>
           <div
-            className="bg-gray-100 relative overflow-hidden flex-shrink-0 flex items-center justify-center"
+            className="bg-gray-100 relative overflow-hidden flex items-center justify-center"
             style={{
-              flex: description !== undefined && description && description.trim() ? '1 1 0' : '1 1 auto',
-              minHeight: description !== undefined && description && description.trim() ? '200px' : 'auto'
+              flex: '1 1 0',
+              minHeight: '200px',
+              minWidth: '200px',
+              width: '100%',
+              height: '100%'
             }}
           >
             <img
@@ -120,7 +140,8 @@ function ImageSlot({
                 height: '100%',
                 objectFit: fitMode, // 'fill': 전체 표시 (왜곡 허용), 'cover': 비율 유지 (일부 잘림)
                 transform: `scale(${scale}) rotate(${rotation}deg)`,
-                transformOrigin: 'center center'
+                transformOrigin: 'center center',
+                display: 'block'
               }}
             />
             {isHovered && (
@@ -129,8 +150,13 @@ function ImageSlot({
                 onDelete={onDelete}
                 onAddDescription={() => {
                   // 내용추가 버튼 클릭 시 입력란 활성화
-                  if (description === undefined) {
+                  if (description === undefined || description === '') {
                     onAddDescription('')
+                    setIsDescriptionActive(true)
+                    // textarea에 포커스 (다음 렌더링 사이클에서)
+                    setTimeout(() => {
+                      textareaRef.current?.focus()
+                    }, 0)
                   }
                 }}
                 onToggleFitMode={() => {
@@ -142,24 +168,53 @@ function ImageSlot({
               />
             )}
           </div>
-          {description !== undefined && (
-            <div className="flex-shrink-0 bg-white border-t border-gray-200 flex items-center justify-center" style={{ padding: '2px 4px' }}>
+          {/* 텍스트 영역: 항상 DOM에 유지하되, 내용이 없을 때는 height:0으로 숨김 */}
+          <div
+            className="flex-shrink-0 bg-white flex items-center justify-center"
+            style={{
+              padding: (isDescriptionActive || (localDescription && localDescription.trim())) ? '2px 4px' : '0',
+              height: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'auto' : '0',
+              minHeight: (isDescriptionActive || (localDescription && localDescription.trim())) ? '16px' : '0',
+              maxHeight: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'none' : '0',
+              overflow: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'visible' : 'hidden',
+              visibility: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'visible' : 'hidden',
+              pointerEvents: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'auto' : 'none',
+              borderTop: (isDescriptionActive || (localDescription && localDescription.trim())) ? '1px solid #e5e7eb' : 'none',
+              flexBasis: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'auto' : '0'
+            }}
+          >
+            {(description !== undefined || isDescriptionActive) && (
               <textarea
-                value={description}
+                ref={textareaRef}
+                value={localDescription}
                 onChange={(e) => {
                   const newValue = e.target.value
+                  // 로컬 state 즉시 업데이트 (UI 반응성 향상)
+                  setLocalDescription(newValue)
+                  // 부모 컴포넌트로 전달 (debounce는 부모에서 처리)
                   onAddDescription(newValue)
+                  // 입력 중에는 항상 활성 상태 유지
+                  if (!isDescriptionActive) {
+                    setIsDescriptionActive(true)
+                  }
                 }}
                 onBlur={(e) => {
                   // 포커스가 벗어나면
-                  if (e.target.value.trim()) {
+                  const trimmedValue = e.target.value.trim()
+                  if (trimmedValue) {
                     // 내용이 있으면 가운데 정렬
                     e.target.style.textAlign = 'center'
                     // 높이를 다시 작게 조정
                     e.currentTarget.style.height = 'auto'
                     e.currentTarget.style.minHeight = '16px'
+                    // 활성 상태 유지 (내용이 있으므로)
+                    setIsDescriptionActive(true)
+                    // 최종 값 저장 (trim된 값)
+                    onAddDescription(trimmedValue)
                   } else {
-                    // 빈 문자열이면 입력란 제거 (특별한 값으로 설정하여 제거 신호 전달)
+                    // 빈 문자열이면 입력란 숨김
+                    setIsDescriptionActive(false)
+                    // 특별한 값으로 설정하여 제거 신호 전달
                     onAddDescription('__REMOVE__')
                   }
                 }}
@@ -172,27 +227,33 @@ function ImageSlot({
                 placeholder="설명을 입력하세요..."
                 className="w-full text-sm text-gray-700 resize-none border-none outline-none"
                 style={{
-                  minHeight: '16px', // 60% 감소 (40px → 16px)
+                  minHeight: (isDescriptionActive || (localDescription && localDescription.trim())) ? '16px' : '0',
                   fontSize: '13px',
                   lineHeight: '1.2',
-                  textAlign: description && description.trim() ? 'center' : 'left',
+                  textAlign: (localDescription && localDescription.trim()) ? 'center' : 'left',
                   overflow: 'hidden'
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
                   // 클릭 시 왼쪽 정렬로 변경 (입력 편의)
                   e.currentTarget.style.textAlign = 'left'
+                  // 클릭 시 활성 상태로 전환
+                  if (!isDescriptionActive) {
+                    setIsDescriptionActive(true)
+                  }
                 }}
                 onFocus={(e) => {
                   e.stopPropagation()
                   // 포커스 시 왼쪽 정렬 및 높이 자동 조정
                   e.currentTarget.style.textAlign = 'left'
                   e.currentTarget.style.overflow = 'auto'
+                  // 포커스 시 활성 상태로 전환
+                  setIsDescriptionActive(true)
                 }}
-                autoFocus
+                autoFocus={isDescriptionActive && description === ''}
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       ) : (
         <div

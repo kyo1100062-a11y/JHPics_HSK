@@ -1,12 +1,14 @@
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { saveFileToDirectory } from './fileSystemUtils'
+import { TemplateType } from '../stores/editorStore'
 
 interface ExportOptions {
   isHighQuality?: boolean
   onProgress?: (current: number, total: number) => void
   pagesMetadata?: Array<{ title: string; projectName: string; subProjectName: string }>
   directoryHandle?: FileSystemDirectoryHandle | null
+  template?: TemplateType
 }
 
 /**
@@ -17,19 +19,22 @@ export async function exportToPDF(
   metadata: { title: string; projectName: string; subProjectName: string },
   options: ExportOptions = {}
 ): Promise<void> {
-  const { isHighQuality = false, onProgress, directoryHandle } = options
+  const { isHighQuality = false, onProgress, directoryHandle, template } = options
 
-  // A4 크기 (mm)
-  const A4_WIDTH_MM = 210
-  const A4_HEIGHT_MM = 297
+  // 가로형 템플릿 여부 확인
+  const isLandscape = template?.includes('-landscape') ?? false
+
+  // A4 크기 (mm) - 가로형일 때는 297×210, 세로형일 때는 210×297
+  const A4_WIDTH_MM = isLandscape ? 297 : 210
+  const A4_HEIGHT_MM = isLandscape ? 210 : 297
 
   // 해상도 설정
   const dpi = isHighQuality ? 425 : 300
   const scale = isHighQuality ? 3.5 : 2.5
 
-  // PDF 생성
+  // PDF 생성 - 가로형일 때는 landscape, 세로형일 때는 portrait
   const pdf = new jsPDF({
-    orientation: 'portrait',
+    orientation: isLandscape ? 'landscape' : 'portrait',
     unit: 'mm',
     format: 'a4'
   })
@@ -75,8 +80,23 @@ export async function exportToPDF(
       restoreUIElements(hiddenElements)
 
       // A4 비율에 맞게 이미지 크기 조정
-      const imgWidth = A4_WIDTH_MM
-      const imgHeight = (canvas.height * A4_WIDTH_MM) / canvas.width
+      // 가로형일 때는 캔버스가 가로로 길고, 세로형일 때는 세로로 길다
+      // 캔버스 비율을 유지하면서 A4 크기에 맞춤
+      const canvasAspectRatio = canvas.width / canvas.height
+      const a4AspectRatio = A4_WIDTH_MM / A4_HEIGHT_MM
+      
+      let imgWidth: number
+      let imgHeight: number
+      
+      if (canvasAspectRatio > a4AspectRatio) {
+        // 캔버스가 더 가로로 길면 너비를 A4_WIDTH에 맞춤
+        imgWidth = A4_WIDTH_MM
+        imgHeight = (canvas.height * A4_WIDTH_MM) / canvas.width
+      } else {
+        // 캔버스가 더 세로로 길면 높이를 A4_HEIGHT에 맞춤
+        imgHeight = A4_HEIGHT_MM
+        imgWidth = (canvas.width * A4_HEIGHT_MM) / canvas.height
+      }
 
       // PDF에 이미지 추가
       const imgData = canvas.toDataURL('image/jpeg', isHighQuality ? 0.9 : 0.7)
@@ -93,6 +113,7 @@ export async function exportToPDF(
         pdf.setTextColor(156, 163, 175) // Gray #9CA3AF
         const pageText = `${i + 1} / ${totalPages}`
         const textWidth = pdf.getTextWidth(pageText)
+        // 가로형일 때는 하단 중앙에, 세로형일 때도 하단 중앙에 배치
         pdf.text(pageText, (A4_WIDTH_MM - textWidth) / 2, A4_HEIGHT_MM - 5)
       }
 

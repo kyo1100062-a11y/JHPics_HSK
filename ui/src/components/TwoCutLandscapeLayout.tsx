@@ -1,7 +1,7 @@
 import ImageSlot from './ImageSlot'
 import { ImageSlot as ImageSlotType } from '../stores/editorStore'
 
-interface TwoCutPortraitLayoutProps {
+interface TwoCutLandscapeLayoutProps {
   slots: ImageSlotType[]
   onImageSelect: (slotId: string, file: File) => void
   onDelete: (slotId: string) => void
@@ -11,7 +11,7 @@ interface TwoCutPortraitLayoutProps {
   imageAreaHeight: number
 }
 
-function TwoCutPortraitLayout({
+function TwoCutLandscapeLayout({
   slots,
   onImageSelect,
   onDelete,
@@ -19,15 +19,15 @@ function TwoCutPortraitLayout({
   onAddDescription,
   imageAreaWidth,
   imageAreaHeight
-}: TwoCutPortraitLayoutProps) {
-  // 세로형 2컷: 1열 × 2행
+}: TwoCutLandscapeLayoutProps) {
+  // 가로형 2컷: 2열 × 1행
   // 슬롯 간격: 2mm
   // 슬롯 크기는 이미지 영역 내에서 가능한 범위에서 최대 크기로 자동 조정
   const gap = 2 // 2mm (약 7.56px at 96 DPI)
-  const slotHeight = `calc((100% - ${gap * 3.7795}px) / 2)`
+  const slotWidth = `calc((100% - ${gap * 3.7795}px) / 2)`
 
   return (
-    <div className="flex flex-col w-full h-full" style={{ gap: `${gap * 3.7795}px`, minHeight: '0', overflow: 'hidden' }}>
+    <div className="flex flex-row w-full h-full" style={{ gap: `${gap * 3.7795}px`, minWidth: '0', overflow: 'hidden' }}>
       {slots.map((slot) => (
         <ImageSlot
           key={slot.id}
@@ -41,8 +41,9 @@ function TwoCutPortraitLayout({
           onEdit={() => onEdit(slot.id)}
           onAddDescription={(description) => onAddDescription(slot.id, description)}
           style={{
-            width: '100%',
-            height: slotHeight,
+            width: slotWidth,
+            height: '100%',
+            minWidth: '200px',
             minHeight: '200px',
             flex: '1 1 0',
             flexShrink: 0,
@@ -55,5 +56,6 @@ function TwoCutPortraitLayout({
   )
 }
 
-export default TwoCutPortraitLayout
+export default TwoCutLandscapeLayout
+
 

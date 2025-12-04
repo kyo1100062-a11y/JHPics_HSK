@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { createRoot, Root } from 'react-dom/client'
 import { useEditorStore, TemplateType } from '../stores/editorStore'
@@ -6,6 +6,7 @@ import { useProjectStore } from '../stores/projectStore'
 import A4Canvas from '../components/A4Canvas'
 import MetadataArea from '../components/MetadataArea'
 import TwoCutPortraitLayout from '../components/TwoCutPortraitLayout'
+import TwoCutLandscapeLayout from '../components/TwoCutLandscapeLayout'
 import ImageEditModal from '../components/ImageEditModal'
 import { exportToPDF, exportToJPEG } from '../utils/exportUtils'
 import { selectDirectory } from '../utils/fileSystemUtils'
@@ -36,6 +37,8 @@ function Editor() {
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null)
   const [isHighQuality, setIsHighQuality] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  // 텍스트 입력 debounce를 위한 ref
+  const descriptionTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({})
 
   // URL 파라미터에서 템플릿 로드
   useEffect(() => {
@@ -60,15 +63,18 @@ function Editor() {
 
   // 이미지 영역은 CSS로 자동 계산되므로 고정값 사용
   const imageAreaDimensions = useMemo(() => {
-    // A4 크기: 210mm × 297mm
+    // 세로형 A4 크기: 210mm × 297mm
+    // 가로형 A4 크기: 297mm × 210mm
     // 캔버스 마진: 20mm (상하좌우)
     // OuterFrame 내부 여백: 8mm (상하좌우)
-    // 실제 이미지 영역: (210 - 20*2 - 8*2) × (297 - 20*2 - 8*2) = 154mm × 241mm
+    // 세로형 이미지 영역: (210 - 20*2 - 8*2) × (297 - 20*2 - 8*2) = 154mm × 241mm
+    // 가로형 이미지 영역: (297 - 20*2 - 8*2) × (210 - 20*2 - 8*2) = 241mm × 154mm
     // 96 DPI 기준: 1mm ≈ 3.7795px
-    const width = 154 * 3.7795 // 약 582px
-    const height = 241 * 3.7795 // 약 910px
+    const isLandscape = template === 'twoCut-landscape'
+    const width = (isLandscape ? 241 : 154) * 3.7795 // 가로형: 약 910px, 세로형: 약 582px
+    const height = (isLandscape ? 154 : 241) * 3.7795 // 가로형: 약 582px, 세로형: 약 910px
     return { width, height }
-  }, [])
+  }, [template])
 
   const handleImageSelect = (slotId: string, file: File) => {
     if (!currentPage) return
@@ -109,12 +115,41 @@ function Editor() {
     setEditingSlotId(null)
   }
 
-  const handleAddDescription = (slotId: string, description: string) => {
+  // 텍스트 입력 debounce 최적화: 즉시 업데이트는 하되, 리렌더링 최소화
+  const handleAddDescription = useCallback((slotId: string, description: string) => {
     if (!currentPage) return
-    // '__REMOVE__' 값이 오면 undefined로 설정하여 입력란 제거
-    const finalDescription = description === '__REMOVE__' ? undefined : description
-    updateSlot(currentPage.id, slotId, { description: finalDescription })
-  }
+    
+    // '__REMOVE__' 값이 오면 즉시 처리 (debounce 없이)
+    if (description === '__REMOVE__') {
+      // 기존 타이머 취소
+      if (descriptionTimeoutRef.current[slotId]) {
+        clearTimeout(descriptionTimeoutRef.current[slotId])
+        delete descriptionTimeoutRef.current[slotId]
+      }
+      updateSlot(currentPage.id, slotId, { description: undefined })
+      return
+    }
+    
+    // 일반 텍스트 입력은 debounce 적용 (100ms로 단축하여 더 자연스러운 입력 경험)
+    if (descriptionTimeoutRef.current[slotId]) {
+      clearTimeout(descriptionTimeoutRef.current[slotId])
+    }
+    
+    descriptionTimeoutRef.current[slotId] = setTimeout(() => {
+      updateSlot(currentPage.id, slotId, { description })
+      delete descriptionTimeoutRef.current[slotId]
+    }, 100)
+  }, [currentPage, updateSlot])
+  
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      Object.values(descriptionTimeoutRef.current).forEach(timer => {
+        clearTimeout(timer)
+      })
+      descriptionTimeoutRef.current = {}
+    }
+  }, [])
 
   // 현재화면 초기화 핸들러
   const handleReset = () => {
@@ -144,6 +179,10 @@ function Editor() {
     roots: Root[]
     canvasElements: HTMLElement[]
   }> => {
+    // 가로형/세로형에 따라 컨테이너 크기 설정
+    const isLandscape = template === 'twoCut-landscape'
+    const containerWidth = isLandscape ? '1123px' : '794px'
+    
     // 임시 컨테이너 생성 (화면 밖에 위치)
     const container = document.createElement('div')
     container.id = 'export-temp-container'
@@ -152,7 +191,7 @@ function Editor() {
       position: fixed;
       top: -9999px;
       left: -9999px;
-      width: 794px;
+      width: ${containerWidth};
       opacity: 0;
       pointer-events: none;
     `
@@ -173,12 +212,16 @@ function Editor() {
       roots.push(root)
 
       // 페이지 컴포넌트 렌더링 (출력용 - 편집 UI 제거, 빈 슬롯은 하얀 배경으로 표시)
+      const LayoutComponent = template === 'twoCut-landscape' 
+        ? TwoCutLandscapeLayout 
+        : TwoCutPortraitLayout
+      
       root.render(
         <div id={`canvas-${page.id}`}>
-          <A4Canvas>
+          <A4Canvas isLandscape={template === 'twoCut-landscape'}>
             <MetadataArea metadata={page.metadata} />
             <div className="w-full flex-1" style={{ minHeight: '300px' }}>
-              <TwoCutPortraitLayout
+              <LayoutComponent
                 slots={page.slots}
                 onImageSelect={() => {}}
                 onDelete={() => {}}
@@ -193,8 +236,18 @@ function Editor() {
       )
     }
 
-    // 모든 페이지가 렌더링될 때까지 대기
-    await new Promise((resolve) => setTimeout(resolve, 150))
+    // 모든 페이지가 렌더링될 때까지 대기 (이미지 로드 및 레이아웃 계산 완료 대기)
+    // 첫 번째 페이지 렌더링 안정화를 위해 충분한 대기 시간 확보
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    
+    // 추가로 레이아웃 재계산을 위한 requestAnimationFrame 대기
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(resolve, 100)
+        })
+      })
+    })
 
     // 각 페이지의 캔버스 요소 수집 및 이미지 로드 확인
     for (let i = 0; i < pages.length; i++) {
@@ -204,36 +257,200 @@ function Editor() {
       const bgWhiteElement = canvasElement?.querySelector('.bg-white') as HTMLElement
 
       if (bgWhiteElement) {
-        // 해당 페이지의 모든 이미지가 로드될 때까지 대기
+        // 해당 페이지의 모든 이미지가 로드될 때까지 대기 (더 확실한 확인)
         const images = bgWhiteElement.querySelectorAll('img')
         const imageLoadPromises = Array.from(images).map((img) => {
-          if (img.complete) {
-            return Promise.resolve()
-          }
           return new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              reject(new Error('이미지 로드 타임아웃'))
-            }, 5000) // 최대 5초 대기
-            
-            img.onload = () => {
-              clearTimeout(timeout)
-              resolve()
+            // 이미지가 완전히 로드되었는지 확인하는 함수
+            const checkImageLoaded = () => {
+              // naturalWidth와 naturalHeight가 0보다 크면 이미지가 로드된 것
+              if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+                return true
+              }
+              return false
             }
-            img.onerror = () => {
-              clearTimeout(timeout)
-              resolve() // 에러가 나도 계속 진행
+            
+            // 이미 로드된 경우 즉시 resolve
+            if (checkImageLoaded()) {
+              // 추가로 렌더링 완료를 위해 짧은 대기
+              setTimeout(() => resolve(), 50)
+              return
+            }
+            
+            // 이미지 로드 대기
+            let resolved = false
+            const timeout = setTimeout(() => {
+              if (!resolved) {
+                resolved = true
+                // 타임아웃이어도 naturalWidth가 있으면 진행
+                if (img.naturalWidth > 0) {
+                  resolve()
+                } else {
+                  console.warn(`페이지 ${i + 1}의 이미지 로드 타임아웃:`, img.src)
+                  resolve() // 타임아웃이어도 계속 진행
+                }
+              }
+            }, 10000) // 최대 10초 대기 (증가)
+            
+            // onload 이벤트 리스너
+            const onLoadHandler = () => {
+              if (!resolved) {
+                resolved = true
+                clearTimeout(timeout)
+                // 추가로 렌더링 완료를 위해 짧은 대기
+                setTimeout(() => resolve(), 100)
+              }
+            }
+            
+            // onerror 이벤트 리스너
+            const onErrorHandler = () => {
+              if (!resolved) {
+                resolved = true
+                clearTimeout(timeout)
+                console.warn(`페이지 ${i + 1}의 이미지 로드 실패:`, img.src)
+                resolve() // 에러가 나도 계속 진행
+              }
+            }
+            
+            img.addEventListener('load', onLoadHandler, { once: true })
+            img.addEventListener('error', onErrorHandler, { once: true })
+            
+            // 이미지가 blob URL인 경우 추가 확인
+            if (img.src.startsWith('blob:')) {
+              // blob URL 이미지는 추가 대기 시간 필요
+              setTimeout(() => {
+                if (checkImageLoaded() && !resolved) {
+                  resolved = true
+                  clearTimeout(timeout)
+                  img.removeEventListener('load', onLoadHandler)
+                  img.removeEventListener('error', onErrorHandler)
+                  setTimeout(() => resolve(), 100)
+                }
+              }, 200)
             }
           })
         })
 
         try {
           await Promise.all(imageLoadPromises)
+          // 모든 이미지 로드 후 추가 안정화 대기
+          await new Promise((resolve) => setTimeout(resolve, 200))
         } catch (error) {
           console.warn(`페이지 ${i + 1}의 이미지 로드 중 오류:`, error)
         }
 
-        // 브라우저 렌더링 완료를 위해 추가 대기
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        // 브라우저 렌더링 완료를 위해 추가 대기 (레이아웃 재계산 보장)
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              setTimeout(resolve, 50) // 추가 안정화 대기
+            })
+          })
+        })
+        
+        // 출력용: A4Canvas 크기를 명시적으로 강제 설정 (모든 페이지 동일한 크기 보장)
+        const isLandscape = template === 'twoCut-landscape'
+        const a4WidthPx = isLandscape ? 1123 : 794 // 가로형: 297mm, 세로형: 210mm at 96 DPI
+        const a4HeightPx = isLandscape ? 794 : 1123 // 가로형: 210mm, 세로형: 297mm at 96 DPI
+        
+        // A4Canvas 최상위 요소 크기 강제 설정
+        const a4Canvas = bgWhiteElement
+        if (a4Canvas) {
+          a4Canvas.style.width = `${a4WidthPx}px`
+          a4Canvas.style.height = `${a4HeightPx}px`
+          a4Canvas.style.maxWidth = `${a4WidthPx}px`
+          a4Canvas.style.maxHeight = `${a4HeightPx}px`
+          a4Canvas.style.aspectRatio = isLandscape ? '297 / 210' : '210 / 297'
+          a4Canvas.style.flexShrink = '0'
+        }
+        
+        // 캔버스 마진 컨테이너 크기 강제 설정
+        const marginContainer = bgWhiteElement.querySelector('div[style*="padding: 20mm"]') as HTMLElement
+        if (marginContainer) {
+          marginContainer.style.width = '100%'
+          marginContainer.style.height = '100%'
+          marginContainer.style.boxSizing = 'border-box'
+        }
+        
+        // 출력용: A4Canvas의 flex 레이아웃이 제대로 작동하도록 보장
+        // OuterFrame 내부의 flex 컨테이너 확인
+        const outerFrame = bgWhiteElement.querySelector('div[class*="border-[2px]"][class*="border-black"]') as HTMLElement
+        if (outerFrame) {
+          outerFrame.style.display = 'flex'
+          outerFrame.style.flexDirection = 'column'
+          outerFrame.style.width = '100%'
+          outerFrame.style.height = '100%'
+          outerFrame.style.boxSizing = 'border-box'
+        }
+        
+        // 메타데이터 영역과 이미지 영역이 flex로 제대로 배치되도록 확인
+        const metadataArea = bgWhiteElement.querySelector('div[class*="text-left"]') as HTMLElement
+        const imageArea = bgWhiteElement.querySelector('div[class*="w-full"][class*="flex-1"]') as HTMLElement
+        
+        if (metadataArea) {
+          metadataArea.style.flexShrink = '0'
+          metadataArea.style.width = '100%'
+        }
+        
+        if (imageArea) {
+          imageArea.style.flex = '1 1 0'
+          imageArea.style.width = '100%'
+          imageArea.style.minHeight = '0' // flex-1이 제대로 작동하도록
+          imageArea.style.overflow = 'hidden'
+        }
+        
+        // 출력용: 모든 슬롯에 overflow: hidden 강제 적용 (슬롯 크기 벗어남 방지)
+        const allSlots = bgWhiteElement.querySelectorAll('div[class*="flex"][class*="flex-col"]')
+        allSlots.forEach((slot) => {
+          const slotElement = slot as HTMLElement
+          // 슬롯 컨테이너에 overflow: hidden 강제 적용
+          slotElement.style.overflow = 'hidden'
+          slotElement.style.position = 'relative'
+          slotElement.style.contain = 'layout style paint'
+          
+          // 이미지 컨테이너 찾기
+          const imageContainers = slotElement.querySelectorAll('div[class*="bg-gray-100"]')
+          imageContainers.forEach((container) => {
+            const containerElement = container as HTMLElement
+            containerElement.style.overflow = 'hidden'
+            containerElement.style.position = 'relative'
+            containerElement.style.contain = 'layout style paint'
+            containerElement.style.clipPath = 'inset(0)'
+            
+            // 이미지 요소에 위치 제한 적용 및 object-fit 강제
+            const images = containerElement.querySelectorAll('img')
+            images.forEach((img) => {
+              const imgElement = img as HTMLElement
+              
+              // 이미지 컨테이너의 실제 크기 확인
+              const containerRect = containerElement.getBoundingClientRect()
+              
+              // object-fit 속성 확인 (cover 또는 fill)
+              const computedStyle = window.getComputedStyle(imgElement)
+              const objectFit = computedStyle.objectFit || 'fill'
+              
+              // 슬롯을 가득 채우도록 강제
+              imgElement.style.position = 'absolute'
+              imgElement.style.top = '0'
+              imgElement.style.left = '0'
+              imgElement.style.width = '100%'
+              imgElement.style.height = '100%'
+              imgElement.style.objectFit = objectFit // cover 또는 fill 유지
+              imgElement.style.objectPosition = 'center center'
+              imgElement.style.margin = '0'
+              imgElement.style.padding = '0'
+              
+              // overflow를 강제하기 위해 clip-path 추가
+              imgElement.style.clipPath = 'inset(0)'
+              
+              // 컨테이너 크기 명시적 설정
+              containerElement.style.width = '100%'
+              containerElement.style.height = '100%'
+              containerElement.style.minWidth = '0'
+              containerElement.style.minHeight = '0'
+            })
+          })
+        })
         
         // 출력용: 빈 슬롯의 UI 요소 숨기기 (하얀 배경만 표시)
         // 빈 슬롯 UI 찾기 (border-dashed가 있는 div, 이미지가 없는 경우)
@@ -320,6 +537,7 @@ function Editor() {
       await exportToPDF(canvasElements, pages[0].metadata, {
         isHighQuality,
         directoryHandle: directoryHandle || undefined,
+        template: template || undefined,
         onProgress: (current, total) => {
           console.log(`${current}/${total} 페이지 처리 중...`)
         }
@@ -375,6 +593,7 @@ function Editor() {
       await exportToJPEG(canvasElements, pages[0].metadata, {
         isHighQuality,
         directoryHandle: directoryHandle || undefined,
+        template: template || undefined,
         pagesMetadata: pages.map((p) => p.metadata), // 각 페이지별 메타데이터 전달
         onProgress: (current, total) => {
           console.log(`${current}/${total} 페이지 처리 중...`)
@@ -400,11 +619,11 @@ function Editor() {
     )
   }
 
-  // 세로형 2컷만 지원 (나중에 확장)
-  if (template !== 'twoCut-portrait') {
+  // 세로형/가로형 2컷 지원
+  if (template !== 'twoCut-portrait' && template !== 'twoCut-landscape') {
     return (
       <div className="min-h-screen bg-deep-blue flex items-center justify-center">
-        <div className="text-white">현재는 세로형 2컷 템플릿만 지원합니다.</div>
+        <div className="text-white">현재는 2컷 템플릿만 지원합니다.</div>
       </div>
     )
   }
@@ -518,18 +737,30 @@ function Editor() {
           {/* A4 캔버스 영역 (좌측) */}
           <div className="flex-1">
             <div id={`canvas-${currentPage.id}`}>
-              <A4Canvas>
+              <A4Canvas isLandscape={template === 'twoCut-landscape'}>
                 <MetadataArea metadata={currentPage.metadata} />
                 <div className="w-full flex-1" style={{ minHeight: '300px' }}>
-                  <TwoCutPortraitLayout
-                    slots={currentPage.slots}
-                    onImageSelect={handleImageSelect}
-                    onDelete={handleSlotDelete}
-                    onEdit={handleSlotEdit}
-                    onAddDescription={handleAddDescription}
-                    imageAreaWidth={imageAreaDimensions.width}
-                    imageAreaHeight={imageAreaDimensions.height}
-                  />
+                  {template === 'twoCut-landscape' ? (
+                    <TwoCutLandscapeLayout
+                      slots={currentPage.slots}
+                      onImageSelect={handleImageSelect}
+                      onDelete={handleSlotDelete}
+                      onEdit={handleSlotEdit}
+                      onAddDescription={handleAddDescription}
+                      imageAreaWidth={imageAreaDimensions.width}
+                      imageAreaHeight={imageAreaDimensions.height}
+                    />
+                  ) : (
+                    <TwoCutPortraitLayout
+                      slots={currentPage.slots}
+                      onImageSelect={handleImageSelect}
+                      onDelete={handleSlotDelete}
+                      onEdit={handleSlotEdit}
+                      onAddDescription={handleAddDescription}
+                      imageAreaWidth={imageAreaDimensions.width}
+                      imageAreaHeight={imageAreaDimensions.height}
+                    />
+                  )}
                 </div>
               </A4Canvas>
             </div>
