@@ -7,6 +7,12 @@ import A4Canvas from '../components/A4Canvas'
 import MetadataArea from '../components/MetadataArea'
 import TwoCutPortraitLayout from '../components/TwoCutPortraitLayout'
 import TwoCutLandscapeLayout from '../components/TwoCutLandscapeLayout'
+import FourCutPortraitLayout from '../components/FourCutPortraitLayout'
+import FourCutLandscapeLayout from '../components/FourCutLandscapeLayout'
+import SixCutPortraitLayout from '../components/SixCutPortraitLayout'
+import SixCutLandscapeLayout from '../components/SixCutLandscapeLayout'
+import CustomPortraitLayout from '../components/CustomPortraitLayout'
+import CustomLandscapeLayout from '../components/CustomLandscapeLayout'
 import ImageEditModal from '../components/ImageEditModal'
 import { exportToPDF, exportToJPEG } from '../utils/exportUtils'
 import { selectDirectory } from '../utils/fileSystemUtils'
@@ -70,7 +76,7 @@ function Editor() {
     // 세로형 이미지 영역: (210 - 20*2 - 8*2) × (297 - 20*2 - 8*2) = 154mm × 241mm
     // 가로형 이미지 영역: (297 - 20*2 - 8*2) × (210 - 20*2 - 8*2) = 241mm × 154mm
     // 96 DPI 기준: 1mm ≈ 3.7795px
-    const isLandscape = template === 'twoCut-landscape'
+    const isLandscape = template?.includes('-landscape') ?? false
     const width = (isLandscape ? 241 : 154) * 3.7795 // 가로형: 약 910px, 세로형: 약 582px
     const height = (isLandscape ? 154 : 241) * 3.7795 // 가로형: 약 582px, 세로형: 약 910px
     return { width, height }
@@ -180,7 +186,7 @@ function Editor() {
     canvasElements: HTMLElement[]
   }> => {
     // 가로형/세로형에 따라 컨테이너 크기 설정
-    const isLandscape = template === 'twoCut-landscape'
+    const isLandscape = template?.includes('-landscape') ?? false
     const containerWidth = isLandscape ? '1123px' : '794px'
     
     // 임시 컨테이너 생성 (화면 밖에 위치)
@@ -212,13 +218,39 @@ function Editor() {
       roots.push(root)
 
       // 페이지 컴포넌트 렌더링 (출력용 - 편집 UI 제거, 빈 슬롯은 하얀 배경으로 표시)
-      const LayoutComponent = template === 'twoCut-landscape' 
-        ? TwoCutLandscapeLayout 
-        : TwoCutPortraitLayout
+      let LayoutComponent
+      switch (template) {
+        case 'twoCut-portrait':
+          LayoutComponent = TwoCutPortraitLayout
+          break
+        case 'twoCut-landscape':
+          LayoutComponent = TwoCutLandscapeLayout
+          break
+        case 'fourCut-portrait':
+          LayoutComponent = FourCutPortraitLayout
+          break
+        case 'fourCut-landscape':
+          LayoutComponent = FourCutLandscapeLayout
+          break
+        case 'sixCut-portrait':
+          LayoutComponent = SixCutPortraitLayout
+          break
+        case 'sixCut-landscape':
+          LayoutComponent = SixCutLandscapeLayout
+          break
+        case 'custom-portrait':
+          LayoutComponent = CustomPortraitLayout
+          break
+        case 'custom-landscape':
+          LayoutComponent = CustomLandscapeLayout
+          break
+        default:
+          LayoutComponent = TwoCutPortraitLayout
+      }
       
       root.render(
         <div id={`canvas-${page.id}`}>
-          <A4Canvas isLandscape={template === 'twoCut-landscape'}>
+          <A4Canvas isLandscape={template?.includes('-landscape') ?? false}>
             <MetadataArea metadata={page.metadata} />
             <div className="w-full flex-1" style={{ minHeight: '300px' }}>
               <LayoutComponent
@@ -349,7 +381,7 @@ function Editor() {
         })
         
         // 출력용: A4Canvas 크기를 명시적으로 강제 설정 (모든 페이지 동일한 크기 보장)
-        const isLandscape = template === 'twoCut-landscape'
+        const isLandscape = template?.includes('-landscape') ?? false
         const a4WidthPx = isLandscape ? 1123 : 794 // 가로형: 297mm, 세로형: 210mm at 96 DPI
         const a4HeightPx = isLandscape ? 794 : 1123 // 가로형: 210mm, 세로형: 297mm at 96 DPI
         
@@ -619,14 +651,7 @@ function Editor() {
     )
   }
 
-  // 세로형/가로형 2컷 지원
-  if (template !== 'twoCut-portrait' && template !== 'twoCut-landscape') {
-    return (
-      <div className="min-h-screen bg-deep-blue flex items-center justify-center">
-        <div className="text-white">현재는 2컷 템플릿만 지원합니다.</div>
-      </div>
-    )
-  }
+  // 템플릿이 없으면 홈으로 리다이렉트 (이미 위에서 처리됨)
 
   return (
     <div className="min-h-screen bg-deep-blue">
@@ -737,30 +762,52 @@ function Editor() {
           {/* A4 캔버스 영역 (좌측) */}
           <div className="flex-1">
             <div id={`canvas-${currentPage.id}`}>
-              <A4Canvas isLandscape={template === 'twoCut-landscape'}>
+              <A4Canvas isLandscape={template?.includes('-landscape') ?? false}>
                 <MetadataArea metadata={currentPage.metadata} />
                 <div className="w-full flex-1" style={{ minHeight: '300px' }}>
-                  {template === 'twoCut-landscape' ? (
-                    <TwoCutLandscapeLayout
-                      slots={currentPage.slots}
-                      onImageSelect={handleImageSelect}
-                      onDelete={handleSlotDelete}
-                      onEdit={handleSlotEdit}
-                      onAddDescription={handleAddDescription}
-                      imageAreaWidth={imageAreaDimensions.width}
-                      imageAreaHeight={imageAreaDimensions.height}
-                    />
-                  ) : (
-                    <TwoCutPortraitLayout
-                      slots={currentPage.slots}
-                      onImageSelect={handleImageSelect}
-                      onDelete={handleSlotDelete}
-                      onEdit={handleSlotEdit}
-                      onAddDescription={handleAddDescription}
-                      imageAreaWidth={imageAreaDimensions.width}
-                      imageAreaHeight={imageAreaDimensions.height}
-                    />
-                  )}
+                  {(() => {
+                    let LayoutComponent
+                    switch (template) {
+                      case 'twoCut-portrait':
+                        LayoutComponent = TwoCutPortraitLayout
+                        break
+                      case 'twoCut-landscape':
+                        LayoutComponent = TwoCutLandscapeLayout
+                        break
+                      case 'fourCut-portrait':
+                        LayoutComponent = FourCutPortraitLayout
+                        break
+                      case 'fourCut-landscape':
+                        LayoutComponent = FourCutLandscapeLayout
+                        break
+                      case 'sixCut-portrait':
+                        LayoutComponent = SixCutPortraitLayout
+                        break
+                      case 'sixCut-landscape':
+                        LayoutComponent = SixCutLandscapeLayout
+                        break
+                      case 'custom-portrait':
+                        LayoutComponent = CustomPortraitLayout
+                        break
+                      case 'custom-landscape':
+                        LayoutComponent = CustomLandscapeLayout
+                        break
+                      default:
+                        LayoutComponent = TwoCutPortraitLayout
+                    }
+                    const Layout = LayoutComponent
+                    return (
+                      <Layout
+                        slots={currentPage.slots}
+                        onImageSelect={handleImageSelect}
+                        onDelete={handleSlotDelete}
+                        onEdit={handleSlotEdit}
+                        onAddDescription={handleAddDescription}
+                        imageAreaWidth={imageAreaDimensions.width}
+                        imageAreaHeight={imageAreaDimensions.height}
+                      />
+                    )
+                  })()}
                 </div>
               </A4Canvas>
             </div>
