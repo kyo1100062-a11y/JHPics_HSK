@@ -7,10 +7,13 @@ interface ImageSlotProps {
   description?: string
   scale?: number
   rotation?: number
+  fitMode?: 'fill' | 'cover' // prop으로 받아서 store와 동기화
   onImageSelect: (file: File) => void
   onDelete: () => void
   onEdit: () => void
   onAddDescription: (description: string) => void
+  onFitModeChange?: (fitMode: 'fill' | 'cover') => void // fitMode 변경 시 호출
+  isCustomTemplate?: boolean // 커스텀 템플릿 여부
   className?: string
   style?: React.CSSProperties
 }
@@ -21,16 +24,18 @@ function ImageSlot({
   description,
   scale = 1,
   rotation = 0,
+  fitMode = 'fill', // prop으로 받음 (기본값: 'fill')
   onImageSelect,
   onDelete,
   onEdit,
   onAddDescription,
+  onFitModeChange,
+  isCustomTemplate = false,
   className = '',
   style = {}
 }: ImageSlotProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [fitMode, setFitMode] = useState<'fill' | 'cover'>('fill') // 기본값: 전체 표시 (왜곡 허용)
   const [isDescriptionActive, setIsDescriptionActive] = useState(false) // 내용추가 버튼 클릭 시 활성화 상태
   const [localDescription, setLocalDescription] = useState(description || '') // 로컬 state로 즉시 입력 반영
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -68,8 +73,10 @@ function ImageSlot({
         alert('JPG, PNG, WEBP 형식만 지원됩니다')
         return
       }
-      // 새 이미지 업로드 시 기본값으로 리셋
-      setFitMode('fill')
+      // 새 이미지 업로드 시 기본값으로 리셋 (store에 저장)
+      if (onFitModeChange) {
+        onFitModeChange('fill')
+      }
       onImageSelect(file)
     }
     // 같은 파일을 다시 선택할 수 있도록 리셋
@@ -95,8 +102,10 @@ function ImageSlot({
         alert('파일 크기는 15MB 이하여야 합니다')
         return
       }
-      // 새 이미지 업로드 시 기본값으로 리셋
-      setFitMode('fill')
+      // 새 이미지 업로드 시 기본값으로 리셋 (store에 저장)
+      if (onFitModeChange) {
+        onFitModeChange('fill')
+      }
       onImageSelect(file)
     }
   }
@@ -134,11 +143,13 @@ function ImageSlot({
           >
             <img
               src={imageUrl}
-              alt="Slot"
+              alt=""
+              className="image-wrapper"
               style={{
                 width: '100%',
                 height: '100%',
-                objectFit: fitMode, // 'fill': 전체 표시 (왜곡 허용), 'cover': 비율 유지 (일부 잘림)
+                objectFit: fitMode === 'cover' ? 'cover' : 'fill',
+                objectPosition: 'center center',
                 transform: `scale(${scale}) rotate(${rotation}deg)`,
                 transformOrigin: 'center center',
                 display: 'block'
@@ -160,8 +171,10 @@ function ImageSlot({
                   }
                 }}
                 onToggleFitMode={() => {
-                  // 비율유지 버튼 클릭 시 'cover'로 전환
-                  setFitMode('cover')
+                  // 비율유지 버튼 클릭 시 'cover'로 전환 (store에 저장)
+                  if (onFitModeChange) {
+                    onFitModeChange('cover')
+                  }
                 }}
                 hasDescription={description !== undefined && description && description.trim() ? true : false}
                 fitMode={fitMode}
@@ -170,16 +183,27 @@ function ImageSlot({
           </div>
           {/* 텍스트 영역: 항상 DOM에 유지하되, 내용이 없을 때는 height:0으로 숨김 */}
           <div
-            className="flex-shrink-0 bg-white flex items-center justify-center"
+            className={`flex-shrink-0 bg-white flex items-start justify-center`}
             style={{
-              padding: (isDescriptionActive || (localDescription && localDescription.trim())) ? '2px 4px' : '0',
-              height: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'auto' : '0',
-              minHeight: (isDescriptionActive || (localDescription && localDescription.trim())) ? '16px' : '0',
-              maxHeight: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'none' : '0',
+              // 커스텀 템플릿: 전체 높이 21px 고정 (border 포함, 실제 텍스트 공간 20px)
+              // 일반 템플릿: 전체 높이 32px 고정 (border 포함, 실제 텍스트 공간 30px)
+              padding: (isDescriptionActive || (localDescription && localDescription.trim())) 
+                ? '0' 
+                : '0',
+              height: (isDescriptionActive || (localDescription && localDescription.trim())) 
+                ? (isCustomTemplate ? '21px' : '32px') 
+                : '0',
+              minHeight: (isDescriptionActive || (localDescription && localDescription.trim())) 
+                ? (isCustomTemplate ? '21px' : '32px') 
+                : '0',
+              maxHeight: (isDescriptionActive || (localDescription && localDescription.trim())) 
+                ? (isCustomTemplate ? '21px' : '32px') 
+                : '0',
               overflow: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'visible' : 'hidden',
               visibility: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'visible' : 'hidden',
               pointerEvents: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'auto' : 'none',
               borderTop: (isDescriptionActive || (localDescription && localDescription.trim())) ? '1px solid #e5e7eb' : 'none',
+              boxSizing: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'border-box' : 'content-box',
               flexBasis: (isDescriptionActive || (localDescription && localDescription.trim())) ? 'auto' : '0'
             }}
           >
@@ -204,9 +228,18 @@ function ImageSlot({
                   if (trimmedValue) {
                     // 내용이 있으면 가운데 정렬
                     e.target.style.textAlign = 'center'
-                    // 높이를 다시 작게 조정
-                    e.currentTarget.style.height = 'auto'
-                    e.currentTarget.style.minHeight = '16px'
+                    // 높이 조정 (커스텀 템플릿은 20px 고정, 일반 템플릿은 30px 고정)
+                    if (isCustomTemplate) {
+                      e.currentTarget.style.height = '20px'
+                      e.currentTarget.style.minHeight = '20px'
+                      e.currentTarget.style.maxHeight = '20px'
+                      e.currentTarget.style.whiteSpace = 'nowrap'
+                    } else {
+                      e.currentTarget.style.height = '30px'
+                      e.currentTarget.style.minHeight = '30px'
+                      e.currentTarget.style.maxHeight = '30px'
+                      e.currentTarget.style.whiteSpace = 'nowrap'
+                    }
                     // 활성 상태 유지 (내용이 있으므로)
                     setIsDescriptionActive(true)
                     // 최종 값 저장 (trim된 값)
@@ -227,11 +260,29 @@ function ImageSlot({
                 placeholder="설명을 입력하세요..."
                 className="w-full text-sm text-gray-700 resize-none border-none outline-none"
                 style={{
-                  minHeight: (isDescriptionActive || (localDescription && localDescription.trim())) ? '16px' : '0',
-                  fontSize: '13px',
-                  lineHeight: '1.2',
+                  // 커스텀 템플릿: 20px 고정 (21px 컨테이너 - 1px border), 한줄 강제
+                  // 일반 템플릿: 30px 고정 (35px 컨테이너 - 1px border), 한줄 강제
+                  minHeight: (isDescriptionActive || (localDescription && localDescription.trim())) 
+                    ? (isCustomTemplate ? '20px' : '30px') 
+                    : '0',
+                  height: (isDescriptionActive || (localDescription && localDescription.trim())) 
+                    ? (isCustomTemplate ? '20px' : '30px') 
+                    : '0',
+                  maxHeight: (isDescriptionActive || (localDescription && localDescription.trim())) 
+                    ? (isCustomTemplate ? '20px' : '30px') 
+                    : '0',
+                  fontSize: isCustomTemplate ? '11px' : '13px',
+                  lineHeight: isCustomTemplate ? '13px' : '13px', // 둘 다 13px 고정값
+                  color: isCustomTemplate ? '#333333' : '#333333', // 둘 다 명시적 색상
                   textAlign: (localDescription && localDescription.trim()) ? 'center' : 'left',
-                  overflow: 'hidden'
+                  overflow: 'visible', // 출력 시 텍스트 잘림 방지
+                  whiteSpace: 'nowrap', // 둘 다 한줄 강제
+                  padding: '0',
+                  margin: '0',
+                  border: '0',
+                  // 출력 시 텍스트가 잘 보이도록 추가 스타일
+                  display: 'block',
+                  verticalAlign: 'top' // 둘 다 위쪽 정렬
                 }}
                 onClick={(e) => {
                   e.stopPropagation()

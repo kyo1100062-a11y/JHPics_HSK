@@ -1,4 +1,5 @@
 import React from 'react'
+import { TitleStyle } from '../stores/editorStore'
 
 interface PageMetadata {
   title: string
@@ -9,10 +10,21 @@ interface PageMetadata {
 
 interface MetadataAreaProps {
   metadata: PageMetadata
+  titleStyle?: TitleStyle
 }
 
-function MetadataArea({ metadata }: MetadataAreaProps) {
+function MetadataArea({ metadata, titleStyle }: MetadataAreaProps) {
   const { title, projectName, subProjectName, manager } = metadata
+  
+  // 기본 titleStyle (없을 경우)
+  const defaultTitleStyle: TitleStyle = {
+    align: 'left',
+    fontFamily: 'sans-serif',
+    fontSize: 19,
+    bold: false
+  }
+  
+  const finalTitleStyle = titleStyle || defaultTitleStyle
 
   // 동적으로 줄 수 계산
   const lines: Array<{ text: string; isFirstLine?: boolean; hasProjectName?: boolean; hasSubProjectName?: boolean }> = []
@@ -103,11 +115,25 @@ function MetadataArea({ metadata }: MetadataAreaProps) {
           ? (index < lines.length - 1 ? '1.4mm' : '0')
           : (index < lines.length - 1 ? '2mm' : '0')
         
+        // 제목 줄(index === 0)에만 titleStyle 적용
+        const isTitleLine = index === 0
+        const titleFontSize = isTitleLine ? `${finalTitleStyle.fontSize}px` : '1em'
+        // 폰트 fallback 처리: 선택된 폰트 + Malgun Gothic + sans-serif
+        const titleFontFamily = isTitleLine 
+          ? `${finalTitleStyle.fontFamily}, 'Malgun Gothic', sans-serif`
+          : undefined
+        const titleFontWeight = isTitleLine && finalTitleStyle.bold ? 'bold' : undefined
+        // 제목 줄에만 정렬 적용, 나머지는 항상 왼쪽 정렬
+        const titleTextAlign = isTitleLine ? finalTitleStyle.align : 'left'
+        
         return (
           <div
             key={index}
             style={{
-              fontSize: index === 0 ? '1.2em' : '1em',
+              fontSize: isTitleLine ? titleFontSize : '1em',
+              fontFamily: isTitleLine ? titleFontFamily : undefined,
+              fontWeight: isTitleLine ? titleFontWeight : undefined,
+              textAlign: titleTextAlign, // 제목 줄에만 정렬 적용
               marginBottom: marginBottom,
               color: '#333333',
               whiteSpace: isFirstLine ? 'nowrap' : 'normal' // 첫 번째 줄은 한 줄에 표기

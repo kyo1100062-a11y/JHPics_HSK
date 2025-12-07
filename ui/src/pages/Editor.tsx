@@ -15,7 +15,6 @@ import CustomPortraitLayout from '../components/CustomPortraitLayout'
 import CustomLandscapeLayout from '../components/CustomLandscapeLayout'
 import ImageEditModal from '../components/ImageEditModal'
 import { exportToPDF, exportToJPEG } from '../utils/exportUtils'
-import { selectDirectory } from '../utils/fileSystemUtils'
 
 function Editor() {
   const [searchParams] = useSearchParams()
@@ -31,9 +30,12 @@ function Editor() {
     deletePage,
     setCurrentPage,
     updatePageMetadata,
+    updateTitleStyle,
     updateSlot,
     setSlotImage,
     removeSlotImage,
+    addSlot,
+    removeSlot,
     reset
   } = useEditorStore()
 
@@ -146,6 +148,11 @@ function Editor() {
       delete descriptionTimeoutRef.current[slotId]
     }, 100)
   }, [currentPage, updateSlot])
+
+  const handleFitModeChange = useCallback((slotId: string, fitMode: 'fill' | 'cover') => {
+    if (!currentPage) return
+    updateSlot(currentPage.id, slotId, { fitMode })
+  }, [currentPage, updateSlot])
   
   // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
@@ -251,7 +258,7 @@ function Editor() {
       root.render(
         <div id={`canvas-${page.id}`}>
           <A4Canvas isLandscape={template?.includes('-landscape') ?? false}>
-            <MetadataArea metadata={page.metadata} />
+            <MetadataArea metadata={page.metadata} titleStyle={page.titleStyle} />
             <div className="w-full flex-1" style={{ minHeight: '300px' }}>
               <LayoutComponent
                 slots={page.slots}
@@ -259,6 +266,7 @@ function Editor() {
                 onDelete={() => {}}
                 onEdit={() => {}}
                 onAddDescription={() => {}}
+                onFitModeChange={() => {}}
                 imageAreaWidth={imageAreaDimensions.width}
                 imageAreaHeight={imageAreaDimensions.height}
               />
@@ -380,6 +388,41 @@ function Editor() {
           })
         })
         
+        // 롤백 검증: export DOM의 <img> 태그 확인
+        const imagesBeforeStyle = bgWhiteElement.querySelectorAll('img.image-wrapper')
+        const bgImageDivs = Array.from(bgWhiteElement.querySelectorAll('.image-wrapper')).filter(w => {
+          const el = w as HTMLElement
+          return el.tagName.toLowerCase() === 'div' && el.style.backgroundImage
+        })
+        
+        if (imagesBeforeStyle.length > 0 || bgImageDivs.length > 0) {
+          console.log(`\n[롤백 검증] 페이지 ${i + 1} - export DOM 렌더링 구조 (이미지 로드 직후)`)
+          console.log(`총 ${imagesBeforeStyle.length}개의 <img> 태그 발견`)
+          console.log(`총 ${bgImageDivs.length}개의 background-image div 발견 (잔존 여부 확인)`)
+          
+          if (imagesBeforeStyle.length > 0) {
+            imagesBeforeStyle.forEach((img, imgIndex) => {
+              const imgElement = img as HTMLElement
+              const imgSrc = imgElement.getAttribute('src') || ''
+              const objectFit = imgElement.style.objectFit || window.getComputedStyle(imgElement).objectFit || 'fill'
+              const matchingSlot = page.slots.find(slot => slot.imageUrl === imgSrc)
+              
+              console.log(`  <img> #${imgIndex + 1}:`, {
+                'src': imgSrc.substring(0, 50) + '...',
+                'object-fit': objectFit,
+                'slot.fitMode': matchingSlot?.fitMode || 'fill',
+                '렌더링 방식': '<img> 기반 (롤백 완료)'
+              })
+            })
+          }
+          
+          if (bgImageDivs.length > 0) {
+            console.warn(`⚠️ 경고: ${bgImageDivs.length}개의 background-image div가 잔존합니다.`)
+          }
+          
+          console.log(`[롤백 검증] 페이지 ${i + 1} - export DOM 렌더링 구조 확인 완료\n`)
+        }
+        
         // 출력용: A4Canvas 크기를 명시적으로 강제 설정 (모든 페이지 동일한 크기 보장)
         const isLandscape = template?.includes('-landscape') ?? false
         const a4WidthPx = isLandscape ? 1123 : 794 // 가로형: 297mm, 세로형: 210mm at 96 DPI
@@ -440,47 +483,116 @@ function Editor() {
           slotElement.style.position = 'relative'
           slotElement.style.contain = 'layout style paint'
           
-          // 이미지 컨테이너 찾기
+          // 텍스트 입력 영역 찾기 및 스타일 조정
+          const textAreas = slotElement.querySelectorAll('textarea')
+          textAreas.forEach((textarea) => {
+            const textareaElement = textarea as HTMLElement
+            const computedStyle = window.getComputedStyle(textareaElement)
+            
+            // 텍스트 영역 컨테이너 찾기
+            const textContainer = textareaElement.parentElement
+            if (textContainer) {
+              const containerStyle = window.getComputedStyle(textContainer)
+              const containerHeight = containerStyle.height
+              const isCustomTemplate = containerHeight === '21px' || containerStyle.maxHeight === '21px'
+              const isNormalTemplate = containerHeight === '32px' || containerStyle.maxHeight === '32px'
+              
+              if (isCustomTemplate || isNormalTemplate) {
+                // 커스텀 템플릿 또는 일반 템플릿: 출력 시 textarea를 div로 변환하여 텍스트를 실제 노드로 렌더링
+                const textValue = textareaElement.value || textareaElement.textContent || ''
+                if (textValue.trim()) {
+                  // 기존에 추가된 출력용 textDiv가 있다면 제거 (중복 방지)
+                  const existingTextDivs = Array.from(textContainer.children).filter(
+                    (child) => child.tagName.toLowerCase() === 'div' && child !== textareaElement
+                  )
+                  existingTextDivs.forEach((div) => div.remove())
+                  
+                  // textarea의 스타일 복사
+                  const computedStyle = window.getComputedStyle(textareaElement)
+                  const fontSize = computedStyle.fontSize || (isCustomTemplate ? '11px' : '13px')
+                  const lineHeight = computedStyle.lineHeight || '13px'
+                  const textAlign = computedStyle.textAlign || 'center'
+                  const color = computedStyle.color || '#333333'
+                  const fontFamily = computedStyle.fontFamily || 'sans-serif'
+                  
+                  // textarea를 숨기고 div로 대체
+                  textareaElement.style.display = 'none'
+                  
+                  // 새로운 div 생성 (실제 텍스트 노드)
+                  const textDiv = document.createElement('div')
+                  textDiv.textContent = textValue
+                  textDiv.style.width = '100%'
+                  textDiv.style.height = isCustomTemplate ? '20px' : '30px'
+                  textDiv.style.minHeight = isCustomTemplate ? '20px' : '30px'
+                  textDiv.style.maxHeight = isCustomTemplate ? '20px' : '30px'
+                  textDiv.style.fontSize = fontSize
+                  textDiv.style.lineHeight = lineHeight
+                  textDiv.style.textAlign = textAlign
+                  textDiv.style.color = color
+                  textDiv.style.fontFamily = fontFamily
+                  textDiv.style.overflow = 'visible'
+                  textDiv.style.whiteSpace = 'nowrap'
+                  textDiv.style.padding = '0'
+                  textDiv.style.margin = '0'
+                  textDiv.style.border = '0'
+                  textDiv.style.display = 'flex'
+                  textDiv.style.alignItems = 'flex-start' // 위쪽 정렬
+                  textDiv.style.justifyContent = 'center'
+                  textDiv.style.paddingTop = '0' // 상단 여유 최소화
+                  
+                  // 컨테이너에 div 추가
+                  textContainer.appendChild(textDiv)
+                  
+                  // 컨테이너도 조정 (border 포함하여 고정 높이 유지, 위쪽 정렬)
+                  const containerHeightValue = isCustomTemplate ? '21px' : '32px'
+                  textContainer.style.height = containerHeightValue
+                  textContainer.style.minHeight = containerHeightValue
+                  textContainer.style.maxHeight = containerHeightValue
+                  textContainer.style.alignItems = 'flex-start' // 위쪽 정렬
+                  textContainer.style.display = 'flex'
+                }
+              } else {
+                // 기존 로직 유지 (혹시 모를 다른 경우)
+                textareaElement.style.overflow = 'visible'
+                textareaElement.style.whiteSpace = 'pre-wrap'
+                textareaElement.style.wordWrap = 'break-word'
+                
+                const scrollHeight = textareaElement.scrollHeight
+                if (scrollHeight > 16) {
+                  textareaElement.style.height = `${scrollHeight}px`
+                  textareaElement.style.minHeight = `${scrollHeight}px`
+                }
+              }
+            }
+          })
+          
+          // 이미지 컨테이너 찾기 및 편집 화면 선명도 비교 로그
           const imageContainers = slotElement.querySelectorAll('div[class*="bg-gray-100"]')
           imageContainers.forEach((container) => {
             const containerElement = container as HTMLElement
             containerElement.style.overflow = 'hidden'
             containerElement.style.position = 'relative'
             containerElement.style.contain = 'layout style paint'
-            containerElement.style.clipPath = 'inset(0)'
             
-            // 이미지 요소에 위치 제한 적용 및 object-fit 강제
-            const images = containerElement.querySelectorAll('img')
-            images.forEach((img) => {
-              const imgElement = img as HTMLElement
-              
-              // 이미지 컨테이너의 실제 크기 확인
-              const containerRect = containerElement.getBoundingClientRect()
-              
-              // object-fit 속성 확인 (cover 또는 fill)
-              const computedStyle = window.getComputedStyle(imgElement)
-              const objectFit = computedStyle.objectFit || 'fill'
-              
-              // 슬롯을 가득 채우도록 강제
-              imgElement.style.position = 'absolute'
-              imgElement.style.top = '0'
-              imgElement.style.left = '0'
-              imgElement.style.width = '100%'
-              imgElement.style.height = '100%'
-              imgElement.style.objectFit = objectFit // cover 또는 fill 유지
-              imgElement.style.objectPosition = 'center center'
-              imgElement.style.margin = '0'
-              imgElement.style.padding = '0'
-              
-              // overflow를 강제하기 위해 clip-path 추가
-              imgElement.style.clipPath = 'inset(0)'
-              
-              // 컨테이너 크기 명시적 설정
-              containerElement.style.width = '100%'
-              containerElement.style.height = '100%'
-              containerElement.style.minWidth = '0'
-              containerElement.style.minHeight = '0'
-            })
+            // 롤백 검증: 편집 DOM의 <img> 태그 확인
+            const images = containerElement.querySelectorAll('img.image-wrapper')
+            if (images.length > 0) {
+              console.log(`\n[롤백 검증] 페이지 ${i + 1} - 편집 DOM 렌더링 구조`)
+              console.log(`총 ${images.length}개의 <img> 태그 발견 (편집 화면: <img> 기반 렌더링)`)
+              images.forEach((img, imgIndex) => {
+                const imgElement = img as HTMLElement
+                const imgSrc = imgElement.getAttribute('src') || ''
+                const objectFit = imgElement.style.objectFit || window.getComputedStyle(imgElement).objectFit || 'fill'
+                const matchingSlot = page.slots.find(slot => slot.imageUrl === imgSrc)
+                console.log(`  <img> #${imgIndex + 1}:`, {
+                  'src': imgSrc.substring(0, 50) + '...',
+                  'object-fit': objectFit,
+                  'slot.fitMode': matchingSlot?.fitMode || 'fill',
+                  '렌더링 방식': '<img> 기반 (롤백 완료)'
+                })
+              })
+              console.log(`[롤백 검증] 페이지 ${i + 1} - 편집 DOM 렌더링 구조 확인 완료\n`)
+            }
           })
         })
         
@@ -501,6 +613,16 @@ function Editor() {
             parentSlot.style.border = 'none'
             // 슬롯의 높이와 공간은 유지 (flex 레이아웃 유지)
           }
+        })
+        
+        // objectFit 등 스타일 적용 후 브라우저 렌더링 반영을 위한 대기
+        // 스타일 변경이 브라우저에 반영되기 전에 캡처되는 것을 방지
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              resolve(undefined)
+            })
+          })
         })
         
         canvasElements.push(bgWhiteElement)
@@ -533,14 +655,6 @@ function Editor() {
   const handleExportPDF = async () => {
     if (!currentPage || isExporting) return
 
-    // 출력 버튼 클릭 시마다 항상 경로 선택 대화상자 표시
-    const selectedHandle = await selectDirectory()
-    if (!selectedHandle) {
-      // 사용자가 취소한 경우 기존 방식(다운로드)으로 진행
-    }
-    
-    const directoryHandle = selectedHandle
-
     setIsExporting(true)
     let exportContainer: HTMLDivElement | null = null
     let exportRoots: Root[] = []
@@ -568,7 +682,6 @@ function Editor() {
       // 각 페이지의 메타데이터를 배열로 전달 (PDF는 첫 번째 페이지만 사용하지만, 향후 확장 가능)
       await exportToPDF(canvasElements, pages[0].metadata, {
         isHighQuality,
-        directoryHandle: directoryHandle || undefined,
         template: template || undefined,
         onProgress: (current, total) => {
           console.log(`${current}/${total} 페이지 처리 중...`)
@@ -588,14 +701,6 @@ function Editor() {
 
   const handleExportJPEG = async () => {
     if (!currentPage || isExporting) return
-
-    // 출력 버튼 클릭 시마다 항상 경로 선택 대화상자 표시
-    const selectedHandle = await selectDirectory()
-    if (!selectedHandle) {
-      // 사용자가 취소한 경우 기존 방식(다운로드)으로 진행
-    }
-    
-    const directoryHandle = selectedHandle
 
     setIsExporting(true)
     let exportContainer: HTMLDivElement | null = null
@@ -624,7 +729,6 @@ function Editor() {
       // 각 페이지의 메타데이터를 배열로 전달 (JPEG는 각 페이지별로 파일명 생성)
       await exportToJPEG(canvasElements, pages[0].metadata, {
         isHighQuality,
-        directoryHandle: directoryHandle || undefined,
         template: template || undefined,
         pagesMetadata: pages.map((p) => p.metadata), // 각 페이지별 메타데이터 전달
         onProgress: (current, total) => {
@@ -763,7 +867,7 @@ function Editor() {
           <div className="flex-1">
             <div id={`canvas-${currentPage.id}`}>
               <A4Canvas isLandscape={template?.includes('-landscape') ?? false}>
-                <MetadataArea metadata={currentPage.metadata} />
+                <MetadataArea metadata={currentPage.metadata} titleStyle={currentPage.titleStyle} />
                 <div className="w-full flex-1" style={{ minHeight: '300px' }}>
                   {(() => {
                     let LayoutComponent
@@ -796,6 +900,7 @@ function Editor() {
                         LayoutComponent = TwoCutPortraitLayout
                     }
                     const Layout = LayoutComponent
+                    const isCustomTemplate = template === 'custom-portrait' || template === 'custom-landscape'
                     return (
                       <Layout
                         slots={currentPage.slots}
@@ -803,6 +908,9 @@ function Editor() {
                         onDelete={handleSlotDelete}
                         onEdit={handleSlotEdit}
                         onAddDescription={handleAddDescription}
+                        onFitModeChange={handleFitModeChange}
+                        onAddSlot={isCustomTemplate ? () => addSlot(currentPage.id) : undefined}
+                        onRemoveSlot={isCustomTemplate ? (slotId: string) => removeSlot(currentPage.id, slotId) : undefined}
                         imageAreaWidth={imageAreaDimensions.width}
                         imageAreaHeight={imageAreaDimensions.height}
                       />
@@ -831,6 +939,155 @@ function Editor() {
 
           {/* 우측 사이드바 (출력 옵션) */}
           <div className="w-64 flex-shrink-0 space-y-4">
+            {/* 제목 스타일 옵션 */}
+            <div className="bg-deep-blue border border-soft-blue rounded-lg p-4">
+              <h3 className="text-white font-bold mb-4">제목 스타일 옵션</h3>
+              <div className="space-y-3">
+                {/* 정렬 방식 */}
+                <div>
+                  <label className="block text-soft-blue mb-2 text-sm">정렬 방식</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => currentPage && updateTitleStyle(currentPage.id, { align: 'left' })}
+                      className={`flex-1 px-3 py-2 rounded-lg border transition-all ${
+                        currentPage?.titleStyle.align === 'left'
+                          ? 'bg-neoblue border-neoblue text-white'
+                          : 'bg-deep-blue border-soft-blue text-soft-blue hover:border-neoblue'
+                      }`}
+                      title="왼쪽 정렬"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 mx-auto"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 6h16M4 12h8M4 18h16"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => currentPage && updateTitleStyle(currentPage.id, { align: 'center' })}
+                      className={`flex-1 px-3 py-2 rounded-lg border transition-all ${
+                        currentPage?.titleStyle.align === 'center'
+                          ? 'bg-neoblue border-neoblue text-white'
+                          : 'bg-deep-blue border-soft-blue text-soft-blue hover:border-neoblue'
+                      }`}
+                      title="가운데 정렬"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 mx-auto"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 6h16M8 12h8M4 18h16"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => currentPage && updateTitleStyle(currentPage.id, { align: 'right' })}
+                      className={`flex-1 px-3 py-2 rounded-lg border transition-all ${
+                        currentPage?.titleStyle.align === 'right'
+                          ? 'bg-neoblue border-neoblue text-white'
+                          : 'bg-deep-blue border-soft-blue text-soft-blue hover:border-neoblue'
+                      }`}
+                      title="오른쪽 정렬"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 mx-auto"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 6h16M12 12h8M4 18h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 글꼴 선택 */}
+                <div>
+                  <label className="block text-soft-blue mb-2 text-sm">글꼴</label>
+                  <select
+                    value={currentPage?.titleStyle.fontFamily || 'sans-serif'}
+                    onChange={(e) => currentPage && updateTitleStyle(currentPage.id, { fontFamily: e.target.value })}
+                    className="w-full px-3 py-2 bg-deep-blue border border-soft-blue rounded-lg text-white focus:outline-none focus:border-neoblue"
+                  >
+                    {/* 웹폰트 7개 */}
+                    <option value="SUIT, sans-serif" style={{ fontFamily: "'SUIT', sans-serif" }}>SUIT</option>
+                    <option value="Inter, sans-serif" style={{ fontFamily: "'Inter', sans-serif" }}>Inter</option>
+                    <option value="'Noto Sans KR', sans-serif" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>Noto Sans KR</option>
+                    <option value="Pretendard, sans-serif" style={{ fontFamily: "'Pretendard', sans-serif" }}>Pretendard</option>
+                    <option value="'Nanum Gothic', sans-serif" style={{ fontFamily: "'Nanum Gothic', sans-serif" }}>Nanum Gothic</option>
+                    <option value="'Nanum Myeongjo', serif" style={{ fontFamily: "'Nanum Myeongjo', serif" }}>Nanum Myeongjo</option>
+                    <option value="'IBM Plex Sans KR', sans-serif" style={{ fontFamily: "'IBM Plex Sans KR', sans-serif" }}>IBM Plex Sans KR</option>
+                    {/* Windows 기본 글꼴 13개 */}
+                    <option value="'Malgun Gothic', sans-serif" style={{ fontFamily: "'Malgun Gothic', sans-serif" }}>Malgun Gothic</option>
+                    <option value="'New Mingjo', serif" style={{ fontFamily: "'New Mingjo', serif" }}>New Mingjo</option>
+                    <option value="Gulim, sans-serif" style={{ fontFamily: "'Gulim', sans-serif" }}>Gulim</option>
+                    <option value="'Human Myeongjo', serif" style={{ fontFamily: "'Human Myeongjo', serif" }}>Human Myeongjo</option>
+                    <option value="Gungsuh, serif" style={{ fontFamily: "'Gungsuh', serif" }}>Gungsuh</option>
+                    <option value="Dotum, sans-serif" style={{ fontFamily: "'Dotum', sans-serif" }}>Dotum</option>
+                    <option value="'HY MyeongJo', serif" style={{ fontFamily: "'HY MyeongJo', serif" }}>HY MyeongJo</option>
+                    <option value="'HY Headline M', sans-serif" style={{ fontFamily: "'HY Headline M', sans-serif" }}>HY Headline M</option>
+                    <option value="'Segoe UI', sans-serif" style={{ fontFamily: "'Segoe UI', sans-serif" }}>Segoe UI</option>
+                    <option value="Arial, sans-serif" style={{ fontFamily: "'Arial', sans-serif" }}>Arial</option>
+                    <option value="Tahoma, sans-serif" style={{ fontFamily: "'Tahoma', sans-serif" }}>Tahoma</option>
+                    <option value="'Courier New', monospace" style={{ fontFamily: "'Courier New', monospace" }}>Courier New</option>
+                    <option value="'Times New Roman', serif" style={{ fontFamily: "'Times New Roman', serif" }}>Times New Roman</option>
+                  </select>
+                </div>
+
+                {/* 글꼴 크기 */}
+                <div>
+                  <label className="block text-soft-blue mb-2 text-sm">글꼴 크기</label>
+                  <input
+                    type="number"
+                    min="8"
+                    max="72"
+                    value={currentPage?.titleStyle.fontSize || 19}
+                    onChange={(e) => {
+                      const size = parseInt(e.target.value, 10)
+                      if (!isNaN(size) && currentPage) {
+                        updateTitleStyle(currentPage.id, { fontSize: size })
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-deep-blue border border-soft-blue rounded-lg text-white focus:outline-none focus:border-neoblue"
+                  />
+                </div>
+
+                {/* 진하게 여부 */}
+                <div>
+                  <label className="flex items-center gap-2 text-white">
+                    <input
+                      type="checkbox"
+                      checked={currentPage?.titleStyle.bold || false}
+                      onChange={(e) => currentPage && updateTitleStyle(currentPage.id, { bold: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span>진하게</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-deep-blue border border-soft-blue rounded-lg p-4">
               <h3 className="text-white font-bold mb-4">출력 옵션</h3>
               <div className="space-y-3">

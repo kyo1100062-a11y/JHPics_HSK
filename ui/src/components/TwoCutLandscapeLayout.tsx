@@ -7,6 +7,7 @@ interface TwoCutLandscapeLayoutProps {
   onDelete: (slotId: string) => void
   onEdit: (slotId: string) => void
   onAddDescription: (slotId: string, description: string) => void
+  onFitModeChange?: (slotId: string, fitMode: 'fill' | 'cover') => void
   imageAreaWidth: number
   imageAreaHeight: number
 }
@@ -17,6 +18,7 @@ function TwoCutLandscapeLayout({
   onDelete,
   onEdit,
   onAddDescription,
+  onFitModeChange,
   imageAreaWidth,
   imageAreaHeight
 }: TwoCutLandscapeLayoutProps) {
@@ -36,10 +38,12 @@ function TwoCutLandscapeLayout({
           description={slot.description}
           scale={slot.scale}
           rotation={slot.rotation}
+          fitMode={slot.fitMode}
           onImageSelect={(file) => onImageSelect(slot.id, file)}
           onDelete={() => onDelete(slot.id)}
           onEdit={() => onEdit(slot.id)}
           onAddDescription={(description) => onAddDescription(slot.id, description)}
+          onFitModeChange={onFitModeChange ? (fitMode) => onFitModeChange(slot.id, fitMode) : undefined}
           style={{
             width: slotWidth,
             height: '100%',
