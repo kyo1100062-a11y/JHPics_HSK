@@ -23,8 +23,8 @@ function CustomLandscapeLayout({
   onFitModeChange,
   onAddSlot,
   onRemoveSlot,
-  imageAreaWidth,
-  imageAreaHeight
+  imageAreaWidth: _imageAreaWidth,
+  imageAreaHeight: _imageAreaHeight
 }: CustomLandscapeLayoutProps) {
   // 커스텀 템플릿: 사용자가 자유롭게 슬롯을 배치
   // 최대 16개 슬롯 지원
@@ -36,7 +36,7 @@ function CustomLandscapeLayout({
   const cols = slots.length > 0 ? Math.ceil(Math.sqrt(slots.length)) : 1
   const rows = slots.length > 0 ? Math.ceil(slots.length / cols) : 1
   const slotWidth = `calc((100% - ${(cols - 1) * gap * 3.7795}px) / ${cols})`
-  const slotHeight = `calc((100% - ${(rows - 1) * gap * 3.7795}px) / ${rows})`
+  const _slotHeight = `calc((100% - ${(rows - 1) * gap * 3.7795}px) / ${rows})`
 
   return (
     <div className="relative w-full h-full">

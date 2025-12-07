@@ -19,7 +19,7 @@ interface ImageSlotProps {
 }
 
 function ImageSlot({
-  slotId,
+  slotId: _slotId,
   imageUrl,
   description,
   scale = 1,

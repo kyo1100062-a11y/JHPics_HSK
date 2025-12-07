@@ -19,8 +19,8 @@ function TwoCutPortraitLayout({
   onEdit,
   onAddDescription,
   onFitModeChange,
-  imageAreaWidth,
-  imageAreaHeight
+  imageAreaWidth: _imageAreaWidth,
+  imageAreaHeight: _imageAreaHeight
 }: TwoCutPortraitLayoutProps) {
   // 세로형 2컷: 1열 × 2행
   // 슬롯 간격: 2mm

@@ -19,8 +19,8 @@ function TwoCutLandscapeLayout({
   onEdit,
   onAddDescription,
   onFitModeChange,
-  imageAreaWidth,
-  imageAreaHeight
+  imageAreaWidth: _imageAreaWidth,
+  imageAreaHeight: _imageAreaHeight
 }: TwoCutLandscapeLayoutProps) {
   // 가로형 2컷: 2열 × 1행
   // 슬롯 간격: 2mm

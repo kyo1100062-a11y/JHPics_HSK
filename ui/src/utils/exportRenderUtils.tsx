@@ -1,4 +1,3 @@
-import React from 'react'
 import { createRoot, Root } from 'react-dom/client'
 import { TemplateType, EditorPage } from '../stores/editorStore'
 import A4Canvas from '../components/A4Canvas'
@@ -227,7 +226,7 @@ async function waitForImages(bgWhiteElement: HTMLElement, pageIndex: number): Pr
 function applyExportStyles(
   bgWhiteElement: HTMLElement,
   template: TemplateType | null,
-  page: EditorPage
+  _page: EditorPage
 ): void {
   const isLandscape = template?.includes('-landscape') ?? false
   const a4WidthPx = isLandscape ? 1123 : 794

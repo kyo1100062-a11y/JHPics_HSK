@@ -12,7 +12,7 @@ function ImageSlotActions({
   onDelete, 
   onAddDescription, 
   onToggleFitMode,
-  hasDescription,
+  hasDescription: _hasDescription,
   fitMode = 'fill'
 }: ImageSlotActionsProps) {
   return (

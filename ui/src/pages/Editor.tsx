@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { useEditorStore, TemplateType } from '../stores/editorStore'
+import { useEditorStore } from '../stores/editorStore'
 import { useProjectStore } from '../stores/projectStore'
 import A4Canvas from '../components/A4Canvas'
 import MetadataArea from '../components/MetadataArea'
@@ -18,6 +18,7 @@ import { logger } from '../utils/logger'
 import { showToast } from '../components/Toast'
 import { isTemplateType } from '../utils/typeGuards'
 import { renderAllPagesForExport, cleanupExportContainer } from '../utils/exportRenderUtils'
+import type { Root } from 'react-dom/client'
 
 function Editor() {
   const [searchParams] = useSearchParams()
@@ -39,8 +40,7 @@ function Editor() {
     setSlotImage,
     removeSlotImage,
     addSlot,
-    removeSlot,
-    reset
+    removeSlot
   } = useEditorStore()
 
   const { projectList, loadProjects } = useProjectStore()
@@ -50,7 +50,7 @@ function Editor() {
   const [isHighQuality, setIsHighQuality] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   // 텍스트 입력 debounce를 위한 ref
-  const descriptionTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({})
+  const descriptionTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   // URL 파라미터에서 템플릿 로드
   useEffect(() => {

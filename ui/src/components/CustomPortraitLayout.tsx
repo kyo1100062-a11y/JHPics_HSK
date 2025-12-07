@@ -23,8 +23,8 @@ function CustomPortraitLayout({
   onFitModeChange,
   onAddSlot,
   onRemoveSlot,
-  imageAreaWidth,
-  imageAreaHeight
+  imageAreaWidth: _imageAreaWidth,
+  imageAreaHeight: _imageAreaHeight
 }: CustomPortraitLayoutProps) {
   // 커스텀 템플릿: 사용자가 자유롭게 슬롯을 배치
   // 최대 16개 슬롯 지원
