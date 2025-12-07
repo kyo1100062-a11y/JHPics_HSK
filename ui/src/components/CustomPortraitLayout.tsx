@@ -49,7 +49,6 @@ function CustomPortraitLayout({
   const rows = getRowsForPortrait(slots.length)
   const cols = slots.length > 0 ? Math.ceil(slots.length / rows) : 1
   const slotWidth = `calc((100% - ${(cols - 1) * gap * 3.7795}px) / ${cols})`
-  const slotHeight = `calc((100% - ${(rows - 1) * gap * 3.7795}px) / ${rows})`
 
   return (
     <div className="relative w-full h-full">

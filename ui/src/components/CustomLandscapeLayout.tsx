@@ -36,7 +36,6 @@ function CustomLandscapeLayout({
   const cols = slots.length > 0 ? Math.ceil(Math.sqrt(slots.length)) : 1
   const rows = slots.length > 0 ? Math.ceil(slots.length / cols) : 1
   const slotWidth = `calc((100% - ${(cols - 1) * gap * 3.7795}px) / ${cols})`
-  const _slotHeight = `calc((100% - ${(rows - 1) * gap * 3.7795}px) / ${rows})`
 
   return (
     <div className="relative w-full h-full">
