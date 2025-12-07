@@ -292,7 +292,14 @@ export async function exportToPDF(
     } else {
       // File System Access API를 지원하지 않는 브라우저의 경우 다운로드로 대체
       logger.warn('[PDF Export] showSaveFilePicker를 지원하지 않는 브라우저입니다. 다운로드로 대체합니다.')
-      pdf.save(defaultFileName)
+      // Blob URL을 사용하여 Save As 창이 열리도록 함
+      const pdfBlobUrl = URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      // a.download 속성을 제거하여 Save As 창이 열리도록 함
+      link.href = pdfBlobUrl
+      link.click()
+      // 메모리 정리
+      setTimeout(() => URL.revokeObjectURL(pdfBlobUrl), 100)
       showToast('PDF가 다운로드되었습니다.', 'info')
     }
   } catch (error: any) {
@@ -303,7 +310,14 @@ export async function exportToPDF(
     }
     logger.error('[PDF Export] 파일 저장 실패:', error)
     // 저장 실패 시 다운로드로 대체
-    pdf.save(defaultFileName)
+    // Blob URL을 사용하여 Save As 창이 열리도록 함
+    const pdfBlobUrl = URL.createObjectURL(pdfBlob)
+    const link = document.createElement('a')
+    // a.download 속성을 제거하여 Save As 창이 열리도록 함
+    link.href = pdfBlobUrl
+    link.click()
+    // 메모리 정리
+    setTimeout(() => URL.revokeObjectURL(pdfBlobUrl), 100)
     showToast('파일 저장에 실패했습니다. 다운로드로 대체합니다.', 'warning')
   }
 
@@ -535,7 +549,7 @@ export async function exportToJPEG(
             // File System Access API를 지원하지 않는 브라우저의 경우 다운로드로 대체
             logger.warn('[JPEG Export] showSaveFilePicker를 지원하지 않는 브라우저입니다. 다운로드로 대체합니다.')
             const link = document.createElement('a')
-            link.download = defaultFileName
+            // a.download 속성을 제거하여 Save As 창이 열리도록 함
             link.href = imgData
             link.click()
           }
@@ -548,7 +562,7 @@ export async function exportToJPEG(
           logger.error('[JPEG Export] 파일 저장 실패 (페이지 1):', error)
           // 저장 실패 시 다운로드로 대체
           const link = document.createElement('a')
-          link.download = defaultFileName
+          // a.download 속성을 제거하여 Save As 창이 열리도록 함
           link.href = imgData
           link.click()
         }
@@ -585,7 +599,7 @@ export async function exportToJPEG(
           } else {
             // 다운로드로 대체
             const link = document.createElement('a')
-            link.download = defaultFileName
+            // a.download 속성을 제거하여 Save As 창이 열리도록 함
             link.href = imgData
             link.click()
           }
@@ -599,7 +613,7 @@ export async function exportToJPEG(
           logger.error(`[JPEG Export] 파일 저장 실패 (페이지 ${i + 1}):`, error)
           // 저장 실패 시 다운로드로 대체
           const link = document.createElement('a')
-          link.download = defaultFileName
+          // a.download 속성을 제거하여 Save As 창이 열리도록 함
           link.href = imgData
           link.click()
         }
@@ -717,10 +731,10 @@ function generateFileName(
   pageNumber?: number,
   totalPages?: number
 ): string {
+  // OS에서 금지된 문자만 제거 (공백, 괄호, 언더스코어는 유지)
   const sanitize = (str: string) => {
     return str
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/\s+/g, '_')
+      .replace(/[<>:"/\\|?*]/g, '') // 금지된 문자만 제거
       .trim()
   }
 
