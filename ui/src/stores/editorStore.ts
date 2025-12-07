@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { logger } from '../utils/logger'
 
 export type TemplateType = 
   | 'twoCut-portrait'
@@ -118,7 +119,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       ...createDefaultPage(),
       slots
     }
-    console.log('[제목 스타일] 초기값:', initialPage.titleStyle)
+    logger.log('[제목 스타일] 초기값:', initialPage.titleStyle)
     set({
       template,
       pages: [initialPage],
@@ -192,7 +193,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     // 변경 로그 출력
     const updatedPage = pages.find((p) => p.id === pageId)
     if (updatedPage) {
-      console.log('[제목 스타일] 변경됨:', { ...updatedPage.titleStyle, ...titleStyle })
+      logger.log('[제목 스타일] 변경됨:', { ...updatedPage.titleStyle, ...titleStyle })
     }
   },
 

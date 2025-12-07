@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { createRoot, Root } from 'react-dom/client'
 import { useEditorStore, TemplateType } from '../stores/editorStore'
 import { useProjectStore } from '../stores/projectStore'
 import A4Canvas from '../components/A4Canvas'
@@ -15,11 +14,16 @@ import CustomPortraitLayout from '../components/CustomPortraitLayout'
 import CustomLandscapeLayout from '../components/CustomLandscapeLayout'
 import ImageEditModal from '../components/ImageEditModal'
 import { exportToPDF, exportToJPEG } from '../utils/exportUtils'
+import { logger } from '../utils/logger'
+import { showToast } from '../components/Toast'
+import { isTemplateType } from '../utils/typeGuards'
+import { renderAllPagesForExport, cleanupExportContainer } from '../utils/exportRenderUtils'
 
 function Editor() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const templateParam = searchParams.get('template') as TemplateType | null
+  const templateParamRaw = searchParams.get('template')
+  const templateParam = templateParamRaw && isTemplateType(templateParamRaw) ? templateParamRaw : null
 
   const {
     template,
@@ -186,471 +190,6 @@ function Editor() {
     setTemplate(template)
   }
 
-  // 절충안 3번: 출력 시 모든 페이지를 임시 DOM에 렌더링하는 헬퍼 함수
-  const renderAllPagesForExport = async (): Promise<{
-    container: HTMLDivElement
-    roots: Root[]
-    canvasElements: HTMLElement[]
-  }> => {
-    // 가로형/세로형에 따라 컨테이너 크기 설정
-    const isLandscape = template?.includes('-landscape') ?? false
-    const containerWidth = isLandscape ? '1123px' : '794px'
-    
-    // 임시 컨테이너 생성 (화면 밖에 위치)
-    const container = document.createElement('div')
-    container.id = 'export-temp-container'
-    container.className = 'export-mode'
-    container.style.cssText = `
-      position: fixed;
-      top: -9999px;
-      left: -9999px;
-      width: ${containerWidth};
-      opacity: 0;
-      pointer-events: none;
-    `
-    document.body.appendChild(container)
-
-    const roots: Root[] = []
-    const canvasElements: HTMLElement[] = []
-
-    // 각 페이지를 순차적으로 렌더링
-    for (let i = 0; i < pages.length; i++) {
-      const page = pages[i]
-      const pageContainer = document.createElement('div')
-      pageContainer.id = `export-page-${page.id}`
-      container.appendChild(pageContainer)
-
-      // React Root 생성
-      const root = createRoot(pageContainer)
-      roots.push(root)
-
-      // 페이지 컴포넌트 렌더링 (출력용 - 편집 UI 제거, 빈 슬롯은 하얀 배경으로 표시)
-      let LayoutComponent
-      switch (template) {
-        case 'twoCut-portrait':
-          LayoutComponent = TwoCutPortraitLayout
-          break
-        case 'twoCut-landscape':
-          LayoutComponent = TwoCutLandscapeLayout
-          break
-        case 'fourCut-portrait':
-          LayoutComponent = FourCutPortraitLayout
-          break
-        case 'fourCut-landscape':
-          LayoutComponent = FourCutLandscapeLayout
-          break
-        case 'sixCut-portrait':
-          LayoutComponent = SixCutPortraitLayout
-          break
-        case 'sixCut-landscape':
-          LayoutComponent = SixCutLandscapeLayout
-          break
-        case 'custom-portrait':
-          LayoutComponent = CustomPortraitLayout
-          break
-        case 'custom-landscape':
-          LayoutComponent = CustomLandscapeLayout
-          break
-        default:
-          LayoutComponent = TwoCutPortraitLayout
-      }
-      
-      root.render(
-        <div id={`canvas-${page.id}`}>
-          <A4Canvas isLandscape={template?.includes('-landscape') ?? false}>
-            <MetadataArea metadata={page.metadata} titleStyle={page.titleStyle} />
-            <div className="w-full flex-1" style={{ minHeight: '300px' }}>
-              <LayoutComponent
-                slots={page.slots}
-                onImageSelect={() => {}}
-                onDelete={() => {}}
-                onEdit={() => {}}
-                onAddDescription={() => {}}
-                onFitModeChange={() => {}}
-                imageAreaWidth={imageAreaDimensions.width}
-                imageAreaHeight={imageAreaDimensions.height}
-              />
-            </div>
-          </A4Canvas>
-        </div>
-      )
-    }
-
-    // 모든 페이지가 렌더링될 때까지 대기 (이미지 로드 및 레이아웃 계산 완료 대기)
-    // 첫 번째 페이지 렌더링 안정화를 위해 충분한 대기 시간 확보
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    
-    // 추가로 레이아웃 재계산을 위한 requestAnimationFrame 대기
-    await new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setTimeout(resolve, 100)
-        })
-      })
-    })
-
-    // 각 페이지의 캔버스 요소 수집 및 이미지 로드 확인
-    for (let i = 0; i < pages.length; i++) {
-      const page = pages[i]
-      const canvasId = `canvas-${page.id}`
-      const canvasElement = document.getElementById(canvasId)
-      const bgWhiteElement = canvasElement?.querySelector('.bg-white') as HTMLElement
-
-      if (bgWhiteElement) {
-        // 해당 페이지의 모든 이미지가 로드될 때까지 대기 (더 확실한 확인)
-        const images = bgWhiteElement.querySelectorAll('img')
-        const imageLoadPromises = Array.from(images).map((img) => {
-          return new Promise<void>((resolve, reject) => {
-            // 이미지가 완전히 로드되었는지 확인하는 함수
-            const checkImageLoaded = () => {
-              // naturalWidth와 naturalHeight가 0보다 크면 이미지가 로드된 것
-              if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
-                return true
-              }
-              return false
-            }
-            
-            // 이미 로드된 경우 즉시 resolve
-            if (checkImageLoaded()) {
-              // 추가로 렌더링 완료를 위해 짧은 대기
-              setTimeout(() => resolve(), 50)
-              return
-            }
-            
-            // 이미지 로드 대기
-            let resolved = false
-            const timeout = setTimeout(() => {
-              if (!resolved) {
-                resolved = true
-                // 타임아웃이어도 naturalWidth가 있으면 진행
-                if (img.naturalWidth > 0) {
-                  resolve()
-                } else {
-                  console.warn(`페이지 ${i + 1}의 이미지 로드 타임아웃:`, img.src)
-                  resolve() // 타임아웃이어도 계속 진행
-                }
-              }
-            }, 10000) // 최대 10초 대기 (증가)
-            
-            // onload 이벤트 리스너
-            const onLoadHandler = () => {
-              if (!resolved) {
-                resolved = true
-                clearTimeout(timeout)
-                // 추가로 렌더링 완료를 위해 짧은 대기
-                setTimeout(() => resolve(), 100)
-              }
-            }
-            
-            // onerror 이벤트 리스너
-            const onErrorHandler = () => {
-              if (!resolved) {
-                resolved = true
-                clearTimeout(timeout)
-                console.warn(`페이지 ${i + 1}의 이미지 로드 실패:`, img.src)
-                resolve() // 에러가 나도 계속 진행
-              }
-            }
-            
-            img.addEventListener('load', onLoadHandler, { once: true })
-            img.addEventListener('error', onErrorHandler, { once: true })
-            
-            // 이미지가 blob URL인 경우 추가 확인
-            if (img.src.startsWith('blob:')) {
-              // blob URL 이미지는 추가 대기 시간 필요
-              setTimeout(() => {
-                if (checkImageLoaded() && !resolved) {
-                  resolved = true
-                  clearTimeout(timeout)
-                  img.removeEventListener('load', onLoadHandler)
-                  img.removeEventListener('error', onErrorHandler)
-                  setTimeout(() => resolve(), 100)
-                }
-              }, 200)
-            }
-          })
-        })
-
-        try {
-          await Promise.all(imageLoadPromises)
-          // 모든 이미지 로드 후 추가 안정화 대기
-          await new Promise((resolve) => setTimeout(resolve, 200))
-        } catch (error) {
-          console.warn(`페이지 ${i + 1}의 이미지 로드 중 오류:`, error)
-        }
-
-        // 브라우저 렌더링 완료를 위해 추가 대기 (레이아웃 재계산 보장)
-        await new Promise((resolve) => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              setTimeout(resolve, 50) // 추가 안정화 대기
-            })
-          })
-        })
-        
-        // 롤백 검증: export DOM의 <img> 태그 확인
-        const imagesBeforeStyle = bgWhiteElement.querySelectorAll('img.image-wrapper')
-        const bgImageDivs = Array.from(bgWhiteElement.querySelectorAll('.image-wrapper')).filter(w => {
-          const el = w as HTMLElement
-          return el.tagName.toLowerCase() === 'div' && el.style.backgroundImage
-        })
-        
-        if (imagesBeforeStyle.length > 0 || bgImageDivs.length > 0) {
-          console.log(`\n[롤백 검증] 페이지 ${i + 1} - export DOM 렌더링 구조 (이미지 로드 직후)`)
-          console.log(`총 ${imagesBeforeStyle.length}개의 <img> 태그 발견`)
-          console.log(`총 ${bgImageDivs.length}개의 background-image div 발견 (잔존 여부 확인)`)
-          
-          if (imagesBeforeStyle.length > 0) {
-            imagesBeforeStyle.forEach((img, imgIndex) => {
-              const imgElement = img as HTMLElement
-              const imgSrc = imgElement.getAttribute('src') || ''
-              const objectFit = imgElement.style.objectFit || window.getComputedStyle(imgElement).objectFit || 'fill'
-              const matchingSlot = page.slots.find(slot => slot.imageUrl === imgSrc)
-              
-              console.log(`  <img> #${imgIndex + 1}:`, {
-                'src': imgSrc.substring(0, 50) + '...',
-                'object-fit': objectFit,
-                'slot.fitMode': matchingSlot?.fitMode || 'fill',
-                '렌더링 방식': '<img> 기반 (롤백 완료)'
-              })
-            })
-          }
-          
-          if (bgImageDivs.length > 0) {
-            console.warn(`⚠️ 경고: ${bgImageDivs.length}개의 background-image div가 잔존합니다.`)
-          }
-          
-          console.log(`[롤백 검증] 페이지 ${i + 1} - export DOM 렌더링 구조 확인 완료\n`)
-        }
-        
-        // 출력용: A4Canvas 크기를 명시적으로 강제 설정 (모든 페이지 동일한 크기 보장)
-        const isLandscape = template?.includes('-landscape') ?? false
-        const a4WidthPx = isLandscape ? 1123 : 794 // 가로형: 297mm, 세로형: 210mm at 96 DPI
-        const a4HeightPx = isLandscape ? 794 : 1123 // 가로형: 210mm, 세로형: 297mm at 96 DPI
-        
-        // A4Canvas 최상위 요소 크기 강제 설정
-        const a4Canvas = bgWhiteElement
-        if (a4Canvas) {
-          a4Canvas.style.width = `${a4WidthPx}px`
-          a4Canvas.style.height = `${a4HeightPx}px`
-          a4Canvas.style.maxWidth = `${a4WidthPx}px`
-          a4Canvas.style.maxHeight = `${a4HeightPx}px`
-          a4Canvas.style.aspectRatio = isLandscape ? '297 / 210' : '210 / 297'
-          a4Canvas.style.flexShrink = '0'
-        }
-        
-        // 캔버스 마진 컨테이너 크기 강제 설정
-        const marginContainer = bgWhiteElement.querySelector('div[style*="padding: 20mm"]') as HTMLElement
-        if (marginContainer) {
-          marginContainer.style.width = '100%'
-          marginContainer.style.height = '100%'
-          marginContainer.style.boxSizing = 'border-box'
-        }
-        
-        // 출력용: A4Canvas의 flex 레이아웃이 제대로 작동하도록 보장
-        // OuterFrame 내부의 flex 컨테이너 확인
-        const outerFrame = bgWhiteElement.querySelector('div[class*="border-[2px]"][class*="border-black"]') as HTMLElement
-        if (outerFrame) {
-          outerFrame.style.display = 'flex'
-          outerFrame.style.flexDirection = 'column'
-          outerFrame.style.width = '100%'
-          outerFrame.style.height = '100%'
-          outerFrame.style.boxSizing = 'border-box'
-        }
-        
-        // 메타데이터 영역과 이미지 영역이 flex로 제대로 배치되도록 확인
-        const metadataArea = bgWhiteElement.querySelector('div[class*="text-left"]') as HTMLElement
-        const imageArea = bgWhiteElement.querySelector('div[class*="w-full"][class*="flex-1"]') as HTMLElement
-        
-        if (metadataArea) {
-          metadataArea.style.flexShrink = '0'
-          metadataArea.style.width = '100%'
-        }
-        
-        if (imageArea) {
-          imageArea.style.flex = '1 1 0'
-          imageArea.style.width = '100%'
-          imageArea.style.minHeight = '0' // flex-1이 제대로 작동하도록
-          imageArea.style.overflow = 'hidden'
-        }
-        
-        // 출력용: 모든 슬롯에 overflow: hidden 강제 적용 (슬롯 크기 벗어남 방지)
-        const allSlots = bgWhiteElement.querySelectorAll('div[class*="flex"][class*="flex-col"]')
-        allSlots.forEach((slot) => {
-          const slotElement = slot as HTMLElement
-          // 슬롯 컨테이너에 overflow: hidden 강제 적용
-          slotElement.style.overflow = 'hidden'
-          slotElement.style.position = 'relative'
-          slotElement.style.contain = 'layout style paint'
-          
-          // 텍스트 입력 영역 찾기 및 스타일 조정
-          const textAreas = slotElement.querySelectorAll('textarea')
-          textAreas.forEach((textarea) => {
-            const textareaElement = textarea as HTMLElement
-            const computedStyle = window.getComputedStyle(textareaElement)
-            
-            // 텍스트 영역 컨테이너 찾기
-            const textContainer = textareaElement.parentElement
-            if (textContainer) {
-              const containerStyle = window.getComputedStyle(textContainer)
-              const containerHeight = containerStyle.height
-              const isCustomTemplate = containerHeight === '21px' || containerStyle.maxHeight === '21px'
-              const isNormalTemplate = containerHeight === '32px' || containerStyle.maxHeight === '32px'
-              
-              if (isCustomTemplate || isNormalTemplate) {
-                // 커스텀 템플릿 또는 일반 템플릿: 출력 시 textarea를 div로 변환하여 텍스트를 실제 노드로 렌더링
-                const textValue = textareaElement.value || textareaElement.textContent || ''
-                if (textValue.trim()) {
-                  // 기존에 추가된 출력용 textDiv가 있다면 제거 (중복 방지)
-                  const existingTextDivs = Array.from(textContainer.children).filter(
-                    (child) => child.tagName.toLowerCase() === 'div' && child !== textareaElement
-                  )
-                  existingTextDivs.forEach((div) => div.remove())
-                  
-                  // textarea의 스타일 복사
-                  const computedStyle = window.getComputedStyle(textareaElement)
-                  const fontSize = computedStyle.fontSize || (isCustomTemplate ? '11px' : '13px')
-                  const lineHeight = computedStyle.lineHeight || '13px'
-                  const textAlign = computedStyle.textAlign || 'center'
-                  const color = computedStyle.color || '#333333'
-                  const fontFamily = computedStyle.fontFamily || 'sans-serif'
-                  
-                  // textarea를 숨기고 div로 대체
-                  textareaElement.style.display = 'none'
-                  
-                  // 새로운 div 생성 (실제 텍스트 노드)
-                  const textDiv = document.createElement('div')
-                  textDiv.textContent = textValue
-                  textDiv.style.width = '100%'
-                  textDiv.style.height = isCustomTemplate ? '20px' : '30px'
-                  textDiv.style.minHeight = isCustomTemplate ? '20px' : '30px'
-                  textDiv.style.maxHeight = isCustomTemplate ? '20px' : '30px'
-                  textDiv.style.fontSize = fontSize
-                  textDiv.style.lineHeight = lineHeight
-                  textDiv.style.textAlign = textAlign
-                  textDiv.style.color = color
-                  textDiv.style.fontFamily = fontFamily
-                  textDiv.style.overflow = 'visible'
-                  textDiv.style.whiteSpace = 'nowrap'
-                  textDiv.style.padding = '0'
-                  textDiv.style.margin = '0'
-                  textDiv.style.border = '0'
-                  textDiv.style.display = 'flex'
-                  textDiv.style.alignItems = 'flex-start' // 위쪽 정렬
-                  textDiv.style.justifyContent = 'center'
-                  textDiv.style.paddingTop = '0' // 상단 여유 최소화
-                  
-                  // 컨테이너에 div 추가
-                  textContainer.appendChild(textDiv)
-                  
-                  // 컨테이너도 조정 (border 포함하여 고정 높이 유지, 위쪽 정렬)
-                  const containerHeightValue = isCustomTemplate ? '21px' : '32px'
-                  textContainer.style.height = containerHeightValue
-                  textContainer.style.minHeight = containerHeightValue
-                  textContainer.style.maxHeight = containerHeightValue
-                  textContainer.style.alignItems = 'flex-start' // 위쪽 정렬
-                  textContainer.style.display = 'flex'
-                }
-              } else {
-                // 기존 로직 유지 (혹시 모를 다른 경우)
-                textareaElement.style.overflow = 'visible'
-                textareaElement.style.whiteSpace = 'pre-wrap'
-                textareaElement.style.wordWrap = 'break-word'
-                
-                const scrollHeight = textareaElement.scrollHeight
-                if (scrollHeight > 16) {
-                  textareaElement.style.height = `${scrollHeight}px`
-                  textareaElement.style.minHeight = `${scrollHeight}px`
-                }
-              }
-            }
-          })
-          
-          // 이미지 컨테이너 찾기 및 편집 화면 선명도 비교 로그
-          const imageContainers = slotElement.querySelectorAll('div[class*="bg-gray-100"]')
-          imageContainers.forEach((container) => {
-            const containerElement = container as HTMLElement
-            containerElement.style.overflow = 'hidden'
-            containerElement.style.position = 'relative'
-            containerElement.style.contain = 'layout style paint'
-            
-            // 롤백 검증: 편집 DOM의 <img> 태그 확인
-            const images = containerElement.querySelectorAll('img.image-wrapper')
-            if (images.length > 0) {
-              console.log(`\n[롤백 검증] 페이지 ${i + 1} - 편집 DOM 렌더링 구조`)
-              console.log(`총 ${images.length}개의 <img> 태그 발견 (편집 화면: <img> 기반 렌더링)`)
-              images.forEach((img, imgIndex) => {
-                const imgElement = img as HTMLElement
-                const imgSrc = imgElement.getAttribute('src') || ''
-                const objectFit = imgElement.style.objectFit || window.getComputedStyle(imgElement).objectFit || 'fill'
-                const matchingSlot = page.slots.find(slot => slot.imageUrl === imgSrc)
-                console.log(`  <img> #${imgIndex + 1}:`, {
-                  'src': imgSrc.substring(0, 50) + '...',
-                  'object-fit': objectFit,
-                  'slot.fitMode': matchingSlot?.fitMode || 'fill',
-                  '렌더링 방식': '<img> 기반 (롤백 완료)'
-                })
-              })
-              console.log(`[롤백 검증] 페이지 ${i + 1} - 편집 DOM 렌더링 구조 확인 완료\n`)
-            }
-          })
-        })
-        
-        // 출력용: 빈 슬롯의 UI 요소 숨기기 (하얀 배경만 표시)
-        // 빈 슬롯 UI 찾기 (border-dashed가 있는 div, 이미지가 없는 경우)
-        const emptySlotUIs = bgWhiteElement.querySelectorAll('div[class*="border-dashed"]')
-        emptySlotUIs.forEach((emptySlot) => {
-          const emptySlotElement = emptySlot as HTMLElement
-          const parentSlot = emptySlotElement.parentElement
-          
-          // 이미지가 있는지 확인 (같은 슬롯 내에 이미지가 없으면 빈 슬롯)
-          if (parentSlot && !parentSlot.querySelector('img')) {
-            // 빈 슬롯 UI 전체 숨기기
-            emptySlotElement.style.display = 'none'
-            
-            // 부모 슬롯 컨테이너에 하얀 배경 설정
-            parentSlot.style.background = '#ffffff'
-            parentSlot.style.border = 'none'
-            // 슬롯의 높이와 공간은 유지 (flex 레이아웃 유지)
-          }
-        })
-        
-        // objectFit 등 스타일 적용 후 브라우저 렌더링 반영을 위한 대기
-        // 스타일 변경이 브라우저에 반영되기 전에 캡처되는 것을 방지
-        await new Promise((resolve) => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              resolve(undefined)
-            })
-          })
-        })
-        
-        canvasElements.push(bgWhiteElement)
-      }
-    }
-
-    // 모든 페이지가 완전히 렌더링될 때까지 최종 대기
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
-    return { container, roots, canvasElements }
-  }
-
-  // 임시 DOM 정리 함수
-  const cleanupExportContainer = (container: HTMLDivElement, roots: Root[]) => {
-    // 모든 React Root 언마운트
-    roots.forEach((root) => {
-      try {
-        root.unmount()
-      } catch (error) {
-        console.warn('Root unmount 실패:', error)
-      }
-    })
-
-    // 컨테이너 제거
-    if (container && container.parentNode) {
-      container.parentNode.removeChild(container)
-    }
-  }
 
   const handleExportPDF = async () => {
     if (!currentPage || isExporting) return
@@ -661,7 +200,7 @@ function Editor() {
 
     try {
       // 절충안 3번: 모든 페이지를 임시 DOM에 렌더링
-      const { container, roots, canvasElements } = await renderAllPagesForExport()
+      const { container, roots, canvasElements } = await renderAllPagesForExport(pages, template, imageAreaDimensions)
       exportContainer = container
       exportRoots = roots
 
@@ -670,13 +209,13 @@ function Editor() {
         if (exportContainer && exportRoots.length > 0) {
           cleanupExportContainer(exportContainer, exportRoots)
         }
-        alert('캔버스를 찾을 수 없습니다.')
+        showToast('캔버스를 찾을 수 없습니다.', 'error')
         setIsExporting(false)
         return
       }
 
       if (canvasElements.length !== pages.length) {
-        console.warn(`일부 페이지(${pages.length - canvasElements.length}개)를 찾지 못했습니다.`)
+        logger.warn(`일부 페이지(${pages.length - canvasElements.length}개)를 찾지 못했습니다.`)
       }
 
       // 각 페이지의 메타데이터를 배열로 전달 (PDF는 첫 번째 페이지만 사용하지만, 향후 확장 가능)
@@ -684,12 +223,12 @@ function Editor() {
         isHighQuality,
         template: template || undefined,
         onProgress: (current, total) => {
-          console.log(`${current}/${total} 페이지 처리 중...`)
+          logger.log(`${current}/${total} 페이지 처리 중...`)
         }
       })
     } catch (error) {
-      console.error('PDF 내보내기 실패:', error)
-      alert('PDF 내보내기 중 오류가 발생했습니다.')
+      logger.error('PDF 내보내기 실패:', error)
+      showToast('PDF 내보내기 중 오류가 발생했습니다.', 'error')
     } finally {
       // 임시 DOM 정리 (항상 실행)
       if (exportContainer && exportRoots.length > 0) {
@@ -708,7 +247,7 @@ function Editor() {
 
     try {
       // 절충안 3번: 모든 페이지를 임시 DOM에 렌더링
-      const { container, roots, canvasElements } = await renderAllPagesForExport()
+      const { container, roots, canvasElements } = await renderAllPagesForExport(pages, template, imageAreaDimensions)
       exportContainer = container
       exportRoots = roots
 
@@ -717,13 +256,13 @@ function Editor() {
         if (exportContainer && exportRoots.length > 0) {
           cleanupExportContainer(exportContainer, exportRoots)
         }
-        alert('캔버스를 찾을 수 없습니다.')
+        showToast('캔버스를 찾을 수 없습니다.', 'error')
         setIsExporting(false)
         return
       }
 
       if (canvasElements.length !== pages.length) {
-        console.warn(`일부 페이지(${pages.length - canvasElements.length}개)를 찾지 못했습니다.`)
+        logger.warn(`일부 페이지(${pages.length - canvasElements.length}개)를 찾지 못했습니다.`)
       }
 
       // 각 페이지의 메타데이터를 배열로 전달 (JPEG는 각 페이지별로 파일명 생성)
@@ -732,12 +271,12 @@ function Editor() {
         template: template || undefined,
         pagesMetadata: pages.map((p) => p.metadata), // 각 페이지별 메타데이터 전달
         onProgress: (current, total) => {
-          console.log(`${current}/${total} 페이지 처리 중...`)
+          logger.log(`${current}/${total} 페이지 처리 중...`)
         }
       })
     } catch (error) {
-      console.error('JPEG 내보내기 실패:', error)
-      alert('JPEG 내보내기 중 오류가 발생했습니다.')
+      logger.error('JPEG 내보내기 실패:', error)
+      showToast('JPEG 내보내기 중 오류가 발생했습니다.', 'error')
     } finally {
       // 임시 DOM 정리 (항상 실행)
       if (exportContainer && exportRoots.length > 0) {

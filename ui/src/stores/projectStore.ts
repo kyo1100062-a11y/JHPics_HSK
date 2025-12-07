@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { logger } from '../utils/logger'
 
 interface ProjectStore {
   projectList: string[]
@@ -29,7 +30,7 @@ const loadFromStorage = (): { projectList: string[]; appVersion: string } => {
       }
     }
   } catch (error) {
-    console.error('Failed to load from localStorage:', error)
+      logger.error('Failed to load from localStorage:', error)
   }
   return { projectList: [], appVersion: APP_VERSION }
 }
@@ -43,7 +44,7 @@ const saveToStorage = (projectList: string[], appVersion: string) => {
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   } catch (error) {
-    console.error('Failed to save to localStorage:', error)
+      logger.error('Failed to save to localStorage:', error)
     // LocalStorage 용량 초과 시 에러 처리
     if (error instanceof Error && error.name === 'QuotaExceededError') {
       throw new Error('저장 공간 부족')

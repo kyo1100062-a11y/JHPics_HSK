@@ -4,6 +4,7 @@ import Upload from './pages/Upload'
 import ProjectList from './pages/ProjectList'
 import Editor from './pages/Editor'
 import Layout from './components/Layout'
+import { ToastContainer } from './components/Toast'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/projects" element={<ProjectList />} />
         <Route path="/editor" element={<Editor />} />
       </Routes>
+      <ToastContainer />
     </Layout>
   )
 }
