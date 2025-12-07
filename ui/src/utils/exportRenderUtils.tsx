@@ -1,3 +1,4 @@
+import React from 'react'
 import { createRoot, Root } from 'react-dom/client'
 import { TemplateType, EditorPage } from '../stores/editorStore'
 import A4Canvas from '../components/A4Canvas'
