@@ -23,15 +23,15 @@ function SixCutLandscapeLayout({
   imageAreaHeight: _imageAreaHeight
 }: SixCutLandscapeLayoutProps) {
   // 가로형 6컷: 3열 × 2행
-  // 슬롯 간격: 2mm
+  // 슬롯 간격: 15px 고정
   // 슬롯 크기는 이미지 영역 내에서 가능한 범위에서 최대 크기로 자동 조정
-  const gap = 2 // 2mm (약 7.56px at 96 DPI)
-  const slotWidth = `calc((100% - ${gap * 2 * 3.7795}px) / 3)`
+  const GAP_PX = 15 // 고정 간격 15px
+  const slotWidth = `calc((100% - ${GAP_PX * 2}px) / 3)`
 
   return (
-    <div className="flex flex-col w-full h-full" style={{ gap: `${gap * 3.7795}px`, minHeight: '0', overflow: 'hidden' }}>
+    <div className="flex flex-col w-full h-full" style={{ gap: `${GAP_PX}px`, minHeight: '0', overflow: 'hidden' }}>
       {/* 첫 번째 행: 슬롯 0, 1, 2 */}
-      <div className="flex flex-row w-full" style={{ gap: `${gap * 3.7795}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}>
+      <div className="flex flex-row w-full" style={{ gap: `${GAP_PX}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}>
         {slots.slice(0, 3).map((slot) => (
           <ImageSlot
             key={slot.id}
@@ -60,7 +60,7 @@ function SixCutLandscapeLayout({
         ))}
       </div>
       {/* 두 번째 행: 슬롯 3, 4, 5 */}
-      <div className="flex flex-row w-full" style={{ gap: `${gap * 3.7795}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}>
+      <div className="flex flex-row w-full" style={{ gap: `${GAP_PX}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}>
         {slots.slice(3, 6).map((slot) => (
           <ImageSlot
             key={slot.id}

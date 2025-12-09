@@ -23,13 +23,13 @@ function TwoCutLandscapeLayout({
   imageAreaHeight: _imageAreaHeight
 }: TwoCutLandscapeLayoutProps) {
   // 가로형 2컷: 2열 × 1행
-  // 슬롯 간격: 2mm
+  // 슬롯 간격: 15px 고정
   // 슬롯 크기는 이미지 영역 내에서 가능한 범위에서 최대 크기로 자동 조정
-  const gap = 2 // 2mm (약 7.56px at 96 DPI)
-  const slotWidth = `calc((100% - ${gap * 3.7795}px) / 2)`
+  const GAP_PX = 15 // 고정 간격 15px
+  const slotWidth = `calc((100% - ${GAP_PX}px) / 2)`
 
   return (
-    <div className="flex flex-row w-full h-full" style={{ gap: `${gap * 3.7795}px`, minWidth: '0', overflow: 'hidden' }}>
+    <div className="flex flex-row w-full h-full" style={{ gap: `${GAP_PX}px`, minWidth: '0', overflow: 'hidden' }}>
       {slots.map((slot) => (
         <ImageSlot
           key={slot.id}

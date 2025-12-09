@@ -23,15 +23,16 @@ function FourCutLandscapeLayout({
   imageAreaHeight: _imageAreaHeight
 }: FourCutLandscapeLayoutProps) {
   // 가로형 4컷: 2열 × 2행 (세로형과 동일)
-  // 슬롯 간격: 2mm
+  // 슬롯 간격: 너비 간격 80px, 높이 간격 15px
   // 슬롯 크기는 이미지 영역 내에서 가능한 범위에서 최대 크기로 자동 조정
-  const gap = 2 // 2mm (약 7.56px at 96 DPI)
-  const slotWidth = `calc((100% - ${gap * 3.7795}px) / 2)`
+  const GAP_WIDTH_PX = 80 // 너비 간격 80px
+  const GAP_HEIGHT_PX = 15 // 높이 간격 15px
+  const slotWidth = `calc((100% - ${GAP_WIDTH_PX}px) / 2)`
 
   return (
-    <div className="flex flex-col w-full h-full" style={{ gap: `${gap * 3.7795}px`, minHeight: '0', overflow: 'hidden' }}>
+    <div className="flex flex-col w-full h-full" style={{ gap: `${GAP_HEIGHT_PX}px`, minHeight: '0', overflow: 'hidden' }}>
       {/* 첫 번째 행: 슬롯 0, 1 */}
-      <div className="flex flex-row w-full" style={{ gap: `${gap * 3.7795}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}>
+      <div className="flex flex-row w-full" style={{ gap: `${GAP_WIDTH_PX}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}>
         {slots.slice(0, 2).map((slot) => (
           <ImageSlot
             key={slot.id}
@@ -60,7 +61,7 @@ function FourCutLandscapeLayout({
         ))}
       </div>
       {/* 두 번째 행: 슬롯 2, 3 */}
-      <div className="flex flex-row w-full" style={{ gap: `${gap * 3.7795}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}>
+      <div className="flex flex-row w-full" style={{ gap: `${GAP_WIDTH_PX}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}>
         {slots.slice(2, 4).map((slot) => (
           <ImageSlot
             key={slot.id}

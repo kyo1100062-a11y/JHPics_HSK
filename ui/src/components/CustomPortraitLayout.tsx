@@ -28,7 +28,7 @@ function CustomPortraitLayout({
 }: CustomPortraitLayoutProps) {
   // 커스텀 템플릿: 사용자가 자유롭게 슬롯을 배치
   // 최대 16개 슬롯 지원
-  const gap = 2 // 2mm (약 7.56px at 96 DPI)
+  const GAP_PX = 15 // 고정 간격 15px
   
   // custom-portrait 슬롯 행 규칙
   // 2개: 1열*2행 (2행)
@@ -48,7 +48,7 @@ function CustomPortraitLayout({
   
   const rows = getRowsForPortrait(slots.length)
   const cols = slots.length > 0 ? Math.ceil(slots.length / rows) : 1
-  const slotWidth = `calc((100% - ${(cols - 1) * gap * 3.7795}px) / ${cols})`
+  const slotWidth = `calc((100% - ${(cols - 1) * GAP_PX}px) / ${cols})`
 
   return (
     <div className="relative w-full h-full">
@@ -66,12 +66,12 @@ function CustomPortraitLayout({
         </button>
       )}
       
-      <div className="flex flex-col w-full h-full" style={{ gap: `${gap * 3.7795}px`, minHeight: '0', overflow: 'hidden' }}>
+      <div className="flex flex-col w-full h-full" style={{ gap: `${GAP_PX}px`, minHeight: '0', overflow: 'hidden' }}>
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div
           key={rowIndex}
           className="flex flex-row w-full"
-          style={{ gap: `${gap * 3.7795}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}
+          style={{ gap: `${GAP_PX}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}
         >
           {Array.from({ length: cols }).map((_, colIndex) => {
             const slotIndex = rowIndex * cols + colIndex

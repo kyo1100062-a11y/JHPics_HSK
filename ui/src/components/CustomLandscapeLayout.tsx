@@ -29,13 +29,13 @@ function CustomLandscapeLayout({
   // 커스텀 템플릿: 사용자가 자유롭게 슬롯을 배치
   // 최대 16개 슬롯 지원
   // custom-landscape는 기존 그대로 적용 (자율적으로 계산)
-  const gap = 2 // 2mm (약 7.56px at 96 DPI)
+  const GAP_PX = 15 // 고정 간격 15px
   
   // 기본 그리드 레이아웃 (4열 × 4행 최대)
   // 슬롯 개수에 따라 자동으로 그리드 크기 조정
   const cols = slots.length > 0 ? Math.ceil(Math.sqrt(slots.length)) : 1
   const rows = slots.length > 0 ? Math.ceil(slots.length / cols) : 1
-  const slotWidth = `calc((100% - ${(cols - 1) * gap * 3.7795}px) / ${cols})`
+  const slotWidth = `calc((100% - ${(cols - 1) * GAP_PX}px) / ${cols})`
 
   return (
     <div className="relative w-full h-full">
@@ -53,12 +53,12 @@ function CustomLandscapeLayout({
         </button>
       )}
       
-      <div className="flex flex-col w-full h-full" style={{ gap: `${gap * 3.7795}px`, minHeight: '0', overflow: 'hidden' }}>
+      <div className="flex flex-col w-full h-full" style={{ gap: `${GAP_PX}px`, minHeight: '0', overflow: 'hidden' }}>
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div
           key={rowIndex}
           className="flex flex-row w-full"
-          style={{ gap: `${gap * 3.7795}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}
+          style={{ gap: `${GAP_PX}px`, minWidth: '0', overflow: 'hidden', flex: '1 1 0' }}
         >
           {Array.from({ length: cols }).map((_, colIndex) => {
             const slotIndex = rowIndex * cols + colIndex
