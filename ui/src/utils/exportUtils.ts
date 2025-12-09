@@ -67,6 +67,9 @@ export async function exportToPDF(
       // UI 요소 숨기기
       const hiddenElements = hideUIElements(canvasElement)
 
+      // DOM 안정화를 위한 렌더링 대기시간
+      await new Promise(res => setTimeout(res, 150))
+
       // 캔버스 캡처
       const canvas = await html2canvas(canvasElement, {
         scale: scale,
@@ -99,6 +102,110 @@ export async function exportToPDF(
               }
             }
           }
+
+          // 편집 버튼 숨기기 (html2canvas clone timing 버그 대응)
+          clonedDoc.querySelectorAll(".edit-btn, .delete-btn, .add-text-btn, .lock-ratio-btn").forEach(el => {
+            (el as HTMLElement).style.display = "none"
+          })
+          
+          // ImageSlotActions 오버레이 숨기기 (편집/삭제/내용추가/비율유지 버튼 포함)
+          clonedDoc.querySelectorAll('div[class*="bg-black"][class*="/50"]').forEach(el => {
+            const overlay = el as HTMLElement
+            if (overlay.querySelector('button')) {
+              overlay.style.display = 'none'
+            }
+          })
+
+          // 커스텀 템플릿의 textarea를 div로 변환
+          // 원본 DOM에서 모든 textarea 찾기
+          const originalTextareas = canvasElement.querySelectorAll('textarea')
+          const clonedTextareas = clonedDoc.querySelectorAll('textarea')
+          
+          // 원본과 클론된 textarea를 인덱스로 매칭
+          originalTextareas.forEach((originalTa, index) => {
+            const clonedTa = clonedTextareas[index] as HTMLTextAreaElement
+            if (!clonedTa) return
+
+            // 원본 textarea의 computed style 확인
+            const originalStyle = window.getComputedStyle(originalTa)
+            const fontSize = originalStyle.fontSize
+            
+            // 커스텀 템플릿 판단: fontSize가 11px이면 커스텀 템플릿
+            // 일반 템플릿은 13px, 커스텀 템플릿은 11px
+            const isCustomTemplate = fontSize === '11px' || parseFloat(fontSize) === 11
+
+            if (isCustomTemplate) {
+              const value = clonedTa.value ?? ''
+              
+              // div 생성
+              const div = clonedDoc.createElement('div')
+              div.textContent = value
+
+              // 커스텀 템플릿 전용 스타일: baseline 보정을 위한 설정
+              const divHeight = 20  // textarea 고정 height
+              const originalLine = 13  // 기존 line-height
+
+              // 원본 textarea와 동일한 크기
+              div.style.height = `${divHeight}px`
+              // baseline이 아래로 쏠리지 않도록 line-height를 약간 줄여줌
+              div.style.lineHeight = `${originalLine}px`  // 13px 유지
+              // flex로 상단 정렬 고정 (baseline 보정용)
+              div.style.display = 'flex'
+              div.style.alignItems = 'flex-start'
+              // flex 컨테이너에서는 text-align이 작동하지 않으므로 justify-content로 가운데 정렬
+              div.style.justifyContent = 'center'
+              // 한 줄 표시 방식
+              div.style.whiteSpace = 'nowrap'
+              div.style.overflow = 'hidden'
+              div.style.textOverflow = 'ellipsis'
+              // margin/padding 제거
+              div.style.margin = '0'
+              div.style.padding = '0'
+              div.style.boxSizing = 'border-box'
+
+              // textarea 폰트 스타일 동일하게 적용
+              div.style.width = originalStyle.width
+              div.style.fontSize = originalStyle.fontSize
+              div.style.fontFamily = originalStyle.fontFamily
+              div.style.fontWeight = originalStyle.fontWeight
+              div.style.color = originalStyle.color
+              
+              // text-align도 명시적으로 설정 (flex를 사용하더라도 내부 텍스트 정렬 보장)
+              div.style.textAlign = 'center'
+
+              // textarea를 div로 교체
+              clonedTa.replaceWith(div)
+
+              // 커스텀 템플릿 캡션 주변 부모 요소의 overflow 및 정렬 확인 및 수정
+              // 부모 컨테이너 찾기 (flex-shrink-0 bg-white)
+              let parent = div.parentElement
+              while (parent) {
+                const parentStyle = window.getComputedStyle(parent)
+                // overflow: hidden인 부모 컨테이너를 visible로 변경
+                if (parentStyle.overflow === 'hidden' || parentStyle.overflowY === 'hidden') {
+                  parent.style.overflow = 'visible'
+                  parent.style.overflowY = 'visible'
+                }
+                // 부모 컨테이너가 flex인 경우 justify-content: center 확인 및 설정
+                if (parentStyle.display === 'flex' || parentStyle.display === '-webkit-flex') {
+                  // 부모가 flex이고 justify-center가 없으면 추가
+                  const justifyContent = parentStyle.justifyContent || parentStyle.webkitJustifyContent || ''
+                  if (justifyContent !== 'center' && justifyContent !== 'flex-center') {
+                    parent.style.justifyContent = 'center'
+                  }
+                }
+                // 부모 컨테이너의 text-align이 left로 설정되어 있거나 비어있으면 center로 변경 (커스텀 템플릿만)
+                if (parentStyle.textAlign === 'left' || parentStyle.textAlign === '') {
+                  parent.style.textAlign = 'center'
+                }
+                // CustomLandscapeLayout이나 CustomPortraitLayout의 직접 자식까지 확인
+                if (parent.classList.contains('relative') && parent.querySelector('div[class*="flex"][class*="flex-col"]')) {
+                  break
+                }
+                parent = parent.parentElement
+              }
+            }
+          })
         }
       })
 
@@ -357,6 +464,9 @@ export async function exportToJPEG(
       // UI 요소 숨기기
       const hiddenElements = hideUIElements(canvasElement)
 
+      // DOM 안정화를 위한 렌더링 대기시간
+      await new Promise(res => setTimeout(res, 150))
+
       // 캔버스 캡처
       const canvas = await html2canvas(canvasElement, {
         scale: scale,
@@ -389,6 +499,110 @@ export async function exportToJPEG(
               }
             }
           }
+
+          // 편집 버튼 숨기기 (html2canvas clone timing 버그 대응)
+          clonedDoc.querySelectorAll(".edit-btn, .delete-btn, .add-text-btn, .lock-ratio-btn").forEach(el => {
+            (el as HTMLElement).style.display = "none"
+          })
+          
+          // ImageSlotActions 오버레이 숨기기 (편집/삭제/내용추가/비율유지 버튼 포함)
+          clonedDoc.querySelectorAll('div[class*="bg-black"][class*="/50"]').forEach(el => {
+            const overlay = el as HTMLElement
+            if (overlay.querySelector('button')) {
+              overlay.style.display = 'none'
+            }
+          })
+
+          // 커스텀 템플릿의 textarea를 div로 변환
+          // 원본 DOM에서 모든 textarea 찾기
+          const originalTextareas = canvasElement.querySelectorAll('textarea')
+          const clonedTextareas = clonedDoc.querySelectorAll('textarea')
+          
+          // 원본과 클론된 textarea를 인덱스로 매칭
+          originalTextareas.forEach((originalTa, index) => {
+            const clonedTa = clonedTextareas[index] as HTMLTextAreaElement
+            if (!clonedTa) return
+
+            // 원본 textarea의 computed style 확인
+            const originalStyle = window.getComputedStyle(originalTa)
+            const fontSize = originalStyle.fontSize
+            
+            // 커스텀 템플릿 판단: fontSize가 11px이면 커스텀 템플릿
+            // 일반 템플릿은 13px, 커스텀 템플릿은 11px
+            const isCustomTemplate = fontSize === '11px' || parseFloat(fontSize) === 11
+
+            if (isCustomTemplate) {
+              const value = clonedTa.value ?? ''
+              
+              // div 생성
+              const div = clonedDoc.createElement('div')
+              div.textContent = value
+
+              // 커스텀 템플릿 전용 스타일: baseline 보정을 위한 설정
+              const divHeight = 20  // textarea 고정 height
+              const originalLine = 13  // 기존 line-height
+
+              // 원본 textarea와 동일한 크기
+              div.style.height = `${divHeight}px`
+              // baseline이 아래로 쏠리지 않도록 line-height를 약간 줄여줌
+              div.style.lineHeight = `${originalLine}px`  // 13px 유지
+              // flex로 상단 정렬 고정 (baseline 보정용)
+              div.style.display = 'flex'
+              div.style.alignItems = 'flex-start'
+              // flex 컨테이너에서는 text-align이 작동하지 않으므로 justify-content로 가운데 정렬
+              div.style.justifyContent = 'center'
+              // 한 줄 표시 방식
+              div.style.whiteSpace = 'nowrap'
+              div.style.overflow = 'hidden'
+              div.style.textOverflow = 'ellipsis'
+              // margin/padding 제거
+              div.style.margin = '0'
+              div.style.padding = '0'
+              div.style.boxSizing = 'border-box'
+
+              // textarea 폰트 스타일 동일하게 적용
+              div.style.width = originalStyle.width
+              div.style.fontSize = originalStyle.fontSize
+              div.style.fontFamily = originalStyle.fontFamily
+              div.style.fontWeight = originalStyle.fontWeight
+              div.style.color = originalStyle.color
+              
+              // text-align도 명시적으로 설정 (flex를 사용하더라도 내부 텍스트 정렬 보장)
+              div.style.textAlign = 'center'
+
+              // textarea를 div로 교체
+              clonedTa.replaceWith(div)
+
+              // 커스텀 템플릿 캡션 주변 부모 요소의 overflow 및 정렬 확인 및 수정
+              // 부모 컨테이너 찾기 (flex-shrink-0 bg-white)
+              let parent = div.parentElement
+              while (parent) {
+                const parentStyle = window.getComputedStyle(parent)
+                // overflow: hidden인 부모 컨테이너를 visible로 변경
+                if (parentStyle.overflow === 'hidden' || parentStyle.overflowY === 'hidden') {
+                  parent.style.overflow = 'visible'
+                  parent.style.overflowY = 'visible'
+                }
+                // 부모 컨테이너가 flex인 경우 justify-content: center 확인 및 설정
+                if (parentStyle.display === 'flex' || parentStyle.display === '-webkit-flex') {
+                  // 부모가 flex이고 justify-center가 없으면 추가
+                  const justifyContent = parentStyle.justifyContent || parentStyle.webkitJustifyContent || ''
+                  if (justifyContent !== 'center' && justifyContent !== 'flex-center') {
+                    parent.style.justifyContent = 'center'
+                  }
+                }
+                // 부모 컨테이너의 text-align이 left로 설정되어 있거나 비어있으면 center로 변경 (커스텀 템플릿만)
+                if (parentStyle.textAlign === 'left' || parentStyle.textAlign === '') {
+                  parent.style.textAlign = 'center'
+                }
+                // CustomLandscapeLayout이나 CustomPortraitLayout의 직접 자식까지 확인
+                if (parent.classList.contains('relative') && parent.querySelector('div[class*="flex"][class*="flex-col"]')) {
+                  break
+                }
+                parent = parent.parentElement
+              }
+            }
+          })
         }
       })
 
