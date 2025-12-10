@@ -41,10 +41,10 @@
 - 서브 타이틀: "원하는 레이아웃과 방향을 선택하여 시작하세요" (중앙 정렬)
 
 (4) 카드섹션
-- 홈 화면의 카드 섹션은 총 4개의 기본 템플릿 카드로 구성: 2컷, 4컷, 6컷, 커스텀
+- 홈 화면의 카드 섹션은 총 4개의 기본 템플릿 카드로 구성: 4컷, 6컷, 커스텀, 커스텀2
 - 각 카드 구성:
-  - 상단: 큰 숫자/기호 (2컷: "2", 4컷: "4", 6컷: "6", 커스텀: "∞")
-  - 중간: "Type 2컷" / "Type 4컷" / "Type 6컷" / "Type 커스텀"
+  - 상단: 큰 숫자/기호 (4컷: "4", 6컷: "6", 커스텀: "◳", 커스텀2: "⧉")
+  - 중간: "Type 4컷" / "Type 6컷" / "Type 커스텀" / "커스텀 사진원본비율"
   - 하단: 세로형(Portrait) / 가로형(Landscape) 2개의 선택 버튼
 
 (5) Footer
@@ -74,18 +74,20 @@
 
 ## 5. 템플릿 & 편집기 기능
 
-### 5.1 템플릿 종류 (총 8종)
+### 5.1 템플릿 종류 (총 10종)
 ⬆ 세로( Portrait )
 - twoCut-portrait (1×2)
 - fourCut-portrait (2×2)
 - sixCut-portrait (2×3)
 - custom-portrait
+- custom2-portrait (커스텀2 – 원본비율 세로형)
 
 ↔ 가로( Landscape )
 - twoCut-landscape (2×1)
 - fourCut-landscape (2×2 동일)
 - sixCut-landscape (3×2)
 - custom-landscape
+- custom2-landscape (커스텀2 – 원본비율 가로형)
 
 ## 6. 사진 편집 화면 (Editor)
 
@@ -184,6 +186,11 @@ OuterFrame → Metadata → ImageArea 순으로 상단에서 하단으로 배치
 - 세로형(포트레이트) → 2컷(1×2), 4컷(2×2), 6컷(2×3)
 - 가로형(랜드스케이프) → 2컷(2×1), 4컷(2×2 동일), 6컷(3×2)
 
+▷ 비율유지 버튼 제거 규칙
+- **4컷 템플릿 (가로형, 세로형)**: "비율유지" 버튼이 표시되지 않음
+- **6컷 템플릿 (가로형, 세로형)**: "비율유지" 버튼이 표시되지 않음
+- 2컷 템플릿은 기존 동작 유지 (비율유지 버튼 표시)
+
 ### 6.4 현재화면 초기화 기능 (신규)
 #### 6.4.1 기능 설명
 - 모든 작업 내용을 삭제하고 처음부터 다시 작업하고 싶을 때 사용
@@ -205,6 +212,9 @@ custom-portrait / custom-landscape 선택 시만 활성화
 - 슬롯 최대 개수: 16개
 - 슬롯 최소 크기: 300px × 300px 이상
 - 슬롯 간 겹침 금지
+
+▷ 비율유지 버튼 제거 규칙
+- **커스텀1 템플릿 (가로형, 세로형)**: "비율유지" 버튼이 표시되지 않음
 
 #### 6.5.1 custom-portrait 슬롯 배치 규칙
 슬롯 개수에 따른 행/열 배치 규칙:
@@ -231,6 +241,56 @@ custom-portrait / custom-landscape 선택 시만 활성화
 - 텍스트 영역(21px) + 이미지 최소 공간(100px)을 고려한 높이 보정 적용
 - 편집 화면과 출력(PDF/JPEG) 모두에서 텍스트 내용이 정상적으로 표시됨
 - 다른 행 수(1-2행)에서는 기존 동작 유지
+
+### 6.6 Custom2 템플릿 기능 (커스텀2 – 원본비율)
+custom2-portrait / custom2-landscape 선택 시만 활성화
+
+#### 6.6.1 기본 기능
+- Custom 템플릿과 동일한 UI/슬롯 구조/동작 방식 유지
+- 페이지 추가/삭제, 슬롯 추가/삭제, 이미지 업로드/드래그, 텍스트 입력 등 모든 공통 기능은 기존 커스텀과 동일
+- 단, 이미지 처리 방식만 다름
+
+#### 6.6.2 이미지 처리 규칙
+- **원본비율 cover 모드 강제 적용**
+  - 슬롯에 이미지를 넣을 때, 또는 기존 이미지를 교체할 때 항상 `object-fit: cover` 형태로 꽉 채워 넣음
+  - 원본 비율 유지, 슬롯을 완전히 채움 (잘리는 부분 허용)
+  - CSS `object-fit: cover` 사용 (JS transform 기반 scale/translate cover 구현 아님)
+  - 이미지 업로드 순간부터 cover 모드가 기본값으로 자동 적용
+- **비율유지 버튼 없음**
+  - 이 템플릿에서는 "비율유지" 버튼(cover/fill 토글)은 UI/기능 둘 다 존재하지 않음
+  - 어떤 경우에도 fill 기반 계산으로 되돌아가지 않음
+
+#### 6.6.3 이미지 확정 기능
+- **데이터 구조**
+  - `ImageSlot` 인터페이스에 `croppedImageUrl?: string` 필드 추가 (Custom2에서 자동 크롭된 이미지)
+  - `ImageSlot` 인터페이스에 `isConfirmed?: boolean` 필드 추가 ("이미지 확정" 버튼을 통해 확정되었는지)
+  - Custom2 템플릿 구분을 위한 `isCustom2Template()` 헬퍼 함수 제공
+- **이미지 확정 버튼**
+  - 출력 옵션 영역에 "이미지 확정" 버튼 제공 (Custom2 템플릿에서만 표시)
+  - 버튼 클릭 시 모든 슬롯의 이미지를 자동으로 크롭하여 `croppedImageUrl` 생성
+  - 크롭 로직:
+    - 현재 화면에 표시된 이미지의 실제 크기(slotWidth, slotHeight)를 기준으로 계산
+    - 원본 이미지의 naturalWidth/naturalHeight를 사용하여 cover 모드 기준으로 크롭
+    - 현재 편집 상태(scale, rotation)를 반영하여 크롭됨
+    - exportScale 3배율로 고화질 크롭 수행
+    - Canvas API를 사용하여 오프스크린에서 크롭 처리
+  - 각 슬롯에 `isConfirmed: true` 및 `croppedImageUrl` 저장
+  - 확정 완료 시 "이미지 확정이 완료되었습니다." 토스트 메시지 표시
+- **렌더링 우선순위**
+  - Custom2 템플릿의 `ImageSlot` 컴포넌트에서 `croppedImageUrl ?? imageUrl` 우선순위로 이미지 표시
+  - "이미지 확정" 전에는 `imageUrl` 사용 (기존 cover 미리보기)
+  - "이미지 확정" 후에는 `croppedImageUrl` 사용 (실제 크롭된 비트맵)
+  - 크롭된 이미지는 이미 편집 상태가 적용된 상태이므로 transform(scale, rotation) 적용하지 않음
+- **출력 전 필수 검사**
+  - Custom2 템플릿에서 PDF/JPEG 출력 시도 시, 이미지가 있는 슬롯 중 확정되지 않은 슬롯이 있으면 경고 메시지 표시
+  - 검사 조건: `hasImage && (!isConfirmed || !croppedImageUrl)`
+  - "커스텀2 템플릿에서는 출력 전에 반드시 '이미지 확정' 버튼을 눌러주세요." 메시지와 함께 출력 중단
+  - 모든 슬롯이 확정된 경우(`isConfirmed: true` 및 `croppedImageUrl` 존재)에만 출력 진행
+  - 출력 시 `croppedImageUrl`이 있으면 해당 이미지를 사용하여 출력
+
+#### 6.6.4 슬롯 배치 규칙
+- custom2-portrait: custom-portrait와 동일한 슬롯 배치 규칙 적용
+- custom2-landscape: custom-landscape와 동일한 슬롯 배치 규칙 적용
 
 ## 7. 메타데이터(Core Metadata)
 
@@ -280,6 +340,12 @@ custom-portrait / custom-landscape 선택 시만 활성화
   - 이미지의 일부가 잘릴 수 있으나, 왜곡 없이 표시됨
 - 각 슬롯별로 독립적으로 표시 모드를 설정할 수 있음
 - 새 이미지를 업로드하면 기본값("전체 표시")으로 리셋됨
+- **템플릿별 비율유지 버튼 표시 규칙**
+  - **4컷 템플릿 (가로형, 세로형)**: "비율유지" 버튼이 표시되지 않음
+  - **6컷 템플릿 (가로형, 세로형)**: "비율유지" 버튼이 표시되지 않음
+  - **커스텀1 템플릿 (가로형, 세로형)**: "비율유지" 버튼이 표시되지 않음
+  - **Custom2 템플릿 (가로형, 세로형)**: "비율유지" 버튼이 표시되지 않음 (항상 `object-fit: cover` 모드로 강제 적용)
+  - **2컷 템플릿**: "비율유지" 버튼이 표시됨 (기존 동작 유지)
 
 #### 8.2.2 빈 슬롯 디자인
 - 점선 테두리 (dashed border), 점선색상: 매우 짙은 회색
@@ -388,6 +454,12 @@ A4 실크기(mm): 210 × 297mm
 - 진하게: Checkbox
 
 출력 옵션 영역:
+- **Custom2 전용 이미지 확정 버튼** (Custom2 템플릿에서만 표시)
+  - "이미지 확정" 버튼: 모든 슬롯의 이미지를 자동 크롭하여 확정
+  - 버튼 클릭 시 각 슬롯의 이미지를 cover 모드 기준으로 크롭하여 `croppedImageUrl` 생성
+  - 현재 편집 상태(scale, rotation)를 반영하여 크롭됨
+  - 확정 완료 시 "이미지 확정이 완료되었습니다." 토스트 메시지 표시
+  - 버튼 스타일: Green 배경 (#22c55e), White 텍스트
 - PDF 내보내기 버튼
 - JPEG 내보내기 버튼
 - 고화질 출력 체크박스
@@ -397,6 +469,23 @@ A4 실크기(mm): 210 × 297mm
 - 고화질: 최대 10MB 이하로 자동 조정
 
 ### 9.3 출력 규칙
+
+#### 9.3.0 Custom2 템플릿 출력 전 필수 검사
+- **검사 시점**: PDF/JPEG 내보내기 버튼 클릭 시, `exportToPDF` / `exportToJPEG` 호출 전에 검사 수행
+- **검사 로직**:
+  - 모든 페이지를 순회하며 Custom2 템플릿인지 확인 (`isCustom2Template()` 함수 사용)
+  - Custom2 템플릿인 경우, 각 슬롯에 대해 다음 조건 확인:
+    - `hasImage`: `!!slot.imageUrl || !!slot.imageFile` (이미지가 있는지)
+    - `notConfirmed`: `!slot.isConfirmed || !slot.croppedImageUrl` (확정되지 않았는지)
+    - 두 조건을 모두 만족하는 슬롯이 하나라도 있으면 검사 실패
+- **검사 실패 시**:
+  - `alert()` 함수로 경고 메시지 표시: "커스텀2 템플릿에서는 출력 전에 반드시 '이미지 확정' 버튼을 눌러주세요."
+  - 출력 프로세스 즉시 중단 (`return` 처리)
+  - `isExporting` 상태 변경 없음 (버튼 비활성화 상태 유지)
+- **검사 통과 시**:
+  - 모든 슬롯이 확정된 경우(`isConfirmed: true` 및 `croppedImageUrl` 존재)에만 출력 진행
+  - 출력 시 `croppedImageUrl`이 있으면 해당 이미지를 사용하여 출력
+  - 기존 출력 로직 그대로 진행
 
 여러 페이지(2페이지 이상) 작업 시:
 - PDF는 한 파일로 통합
@@ -713,7 +802,7 @@ appVersion 비교 후 구조 변경 발생 시 자동 재설정
 - 컬러: #A0A8C2
 - 폰트: SUIT Regular, 중앙 정렬
 
-#### 14.2.4 템플릿 카드 디자인 (2/4/6/커스텀)
+#### 14.2.4 템플릿 카드 디자인 (4/6/커스텀/커스텀2)
 카드 공통 스타일:
 - 배경: Deep Blue #10131A
 - 테두리: 1px Soft Blue #A8B7F5
@@ -721,11 +810,11 @@ appVersion 비교 후 구조 변경 발생 시 자동 재설정
 - 내부 패딩: 상하좌우 24~32px
 - 그림자: 기본은 약한 soft shadow, hover 시 네오블루 글로우 강화
 
-카드 내용 구성:
-- 상단: 큰 숫자/기호 (2, 4, 6, ∞)
+카드 내용 구성 (4컷/6컷/커스텀):
+- 상단: 큰 숫자/기호 (4, 6, ◳)
   - 컬러: Primary Neoblue #4C6FFF
   - 폰트: Inter Bold, 크게
-- 중간: "Type 2컷" / "Type 4컷" / ...
+- 중간: "Type 4컷" / "Type 6컷" / "Type 커스텀"
   - 컬러: White
   - 폰트: SUIT Medium
 - 하단: 버튼 2개 – 세로형 / 가로형
@@ -733,10 +822,29 @@ appVersion 비교 후 구조 변경 발생 시 자동 재설정
   - 기본 상태: 투명 배경, Soft Blue 테두리, White 텍스트
   - hover 시: Neoblue 그라데이션 배경, White 텍스트, 살짝 글로우
 
-카드 hover 효과:
+카드 hover 효과 (4컷/6컷/커스텀):
 - scale: 1.05~1.07
 - 테두리 색: Neoblue #4C6FFF로 조금 더 밝게
 - box-shadow: Neoblue + Mint 글로우 (0 0 25px rgba(76,111,255,0.6) 등)
+- transition: 0.25s ease-out
+
+커스텀2 카드 특별 디자인:
+- 상단: 큰 기호 (⧉)
+  - 컬러: Accent Mint #AEEAFF
+  - 폰트: Inter Bold, 크게
+- 중간: "커스텀 사진원본비율"
+  - 컬러: White
+  - 폰트: SUIT Medium
+- 테두리: Accent Mint #AEEAFF
+- 하단: 버튼 2개 – 세로형 / 가로형
+  - pill 형태, 둥근 모서리
+  - 기본 상태: 투명 배경, Accent Mint 테두리 (#AEEAFF), White 텍스트
+  - hover 시: Accent Mint 그라데이션 배경 (#AEEAFF → #8DD5FF), White 텍스트, 살짝 글로우
+
+커스텀2 카드 hover 효과:
+- scale: 1.05~1.07
+- 테두리 색: Accent Mint #AEEAFF 유지
+- box-shadow: Accent Mint 글로우 (0 0 25px rgba(174,234,255,0.6))
 - transition: 0.25s ease-out
 
 ### 14.3 사진편집 화면 디자인
@@ -843,7 +951,7 @@ A4Canvas 영역:
 ## 16. 구현 완료 기능 요약
 
 ### 16.1 핵심 기능
-✅ 템플릿 선택 (2컷, 4컷, 6컷, 커스텀 × 세로형/가로형)
+✅ 템플릿 선택 (4컷, 6컷, 커스텀, 커스텀2 × 세로형/가로형)
 ✅ 페이지 관리 (최대 10페이지, 추가/삭제, 메타데이터 복사)
 ✅ 이미지 업로드 (드래그 앤 드롭, 파일 선택)
 ✅ 이미지 편집 (확대/축소, 회전, 비율 유지 모드)
@@ -852,6 +960,7 @@ A4Canvas 영역:
 ✅ 출력 경로 지정 (File System Access API)
 ✅ 현재화면 초기화
 ✅ 사업리스트 관리 (LocalStorage)
+✅ Custom2 템플릿 (원본비율 cover 모드 강제, 이미지 확정 기능)
 
 ### 16.2 출력 기능
 ✅ 안정적인 다중 페이지 출력 (절충안 3번 구현)
@@ -882,7 +991,7 @@ A4Canvas 영역:
 
 **문서 버전**: ver2
 **최종 업데이트**: 2025-01-XX
-**작성 기준**: 현재 구현 완료된 기능 반영
+**작성 기준**: 현재 구현 완료된 기능 반영 (Custom2 템플릿 포함)
 
 ## 18. 최근 개선 사항 (2025-01-XX)
 
@@ -945,4 +1054,104 @@ A4Canvas 영역:
 - 레이아웃 컴포넌트(CustomPortraitLayout, CustomLandscapeLayout)에서 조건부 보정 적용
 - exportUtils의 onclone 단계에서 추가 보정 로직으로 출력 시 텍스트 영역 높이 보장
 - 문제가 발생하는 구간에서만 보정이 적용되며, 기존에 정상 작동하던 구간(세로형 1-3행, 가로형 1-2행)은 영향 없음
+
+### 18.8 Custom2 템플릿 추가 (커스텀2 – 원본비율)
+- **새로운 템플릿 추가**
+  - Custom2OriginalRatioPortrait (커스텀2 – 원본비율 세로형)
+  - Custom2OriginalRatioLandscape (커스텀2 – 원본비율 가로형)
+  - 기존 커스텀 템플릿과 동일한 UI/슬롯 구조/동작 방식 유지
+  - 페이지 추가/삭제, 슬롯 추가/삭제, 이미지 업로드/드래그, 텍스트 입력 등 모든 공통 기능은 기존 커스텀과 동일
+- **이미지 처리 방식**
+  - 항상 `object-fit: cover` 모드로 강제 적용 (원본 비율 유지, 슬롯 완전히 채움)
+  - CSS `object-fit: cover` 사용 (JS transform 기반 scale/translate cover 구현 아님)
+  - 이미지 업로드 순간부터 cover 모드가 기본값으로 자동 적용
+  - "비율유지" 버튼(cover/fill 토글)은 UI/기능 둘 다 존재하지 않음
+  - 어떤 경우에도 fill 기반 계산으로 되돌아가지 않음
+- **데이터 구조 확장**
+  - `ImageSlot` 인터페이스에 `croppedImageUrl?: string` 필드 추가
+    - Custom2에서 "이미지 확정" 버튼 클릭 시 자동 크롭된 이미지의 Data URL 저장
+    - 크롭된 이미지는 슬롯 크기에 딱 맞게 잘라낸 비트맵 데이터
+  - `ImageSlot` 인터페이스에 `isConfirmed?: boolean` 필드 추가
+    - "이미지 확정" 버튼을 통해 확정되었는지 여부를 나타내는 플래그
+  - `isCustom2Template()` 헬퍼 함수 추가 (`ui/src/utils/typeGuards.ts`)
+    - 템플릿 타입이 Custom2인지 확인하는 유틸리티 함수
+    - `templateType === 'custom2-portrait' || templateType === 'custom2-landscape'` 조건으로 판별
+- **이미지 확정 기능 (자동 크롭)**
+  - 출력 옵션 영역에 "이미지 확정" 버튼 제공 (Custom2 템플릿에서만 표시)
+  - 버튼 클릭 시 `handleConfirmImagesForCustom2()` 함수 실행
+  - 자동 크롭 로직:
+    1. 현재 페이지의 모든 슬롯을 순회
+    2. 이미지가 있는 슬롯에 대해서만 처리 (`!!slot.imageUrl || !!slot.imageFile`)
+    3. DOM에서 실제 이미지 요소 찾기 (`img[data-slot-id="${slot.id}"]`)
+    4. 이미지 컨테이너의 실제 크기 측정 (`getBoundingClientRect()`)
+    5. 원본 이미지 로드 (naturalWidth/naturalHeight 사용)
+    6. Cover 모드 기준으로 크롭 영역 계산:
+       - 슬롯 크기 × exportScale(3배)로 캔버스 크기 설정
+       - `Math.max(canvasWidth / naturalWidth, canvasHeight / naturalHeight)` 로 cover scale 계산
+       - 중앙 정렬을 위한 offset 계산
+    7. Canvas API를 사용하여 오프스크린에서 크롭:
+       - 회전 및 스케일 변환 적용 (현재 편집 상태 반영)
+       - `canvas.toDataURL('image/jpeg', 0.9)` 로 Data URL 생성
+    8. 각 슬롯에 `croppedImageUrl` 및 `isConfirmed: true` 저장
+  - 확정 완료 시 "이미지 확정이 완료되었습니다." 토스트 메시지 표시
+- **렌더링 우선순위**
+  - Custom2 템플릿의 `ImageSlot` 컴포넌트에서 `croppedImageUrl ?? imageUrl` 우선순위로 이미지 표시
+  - "이미지 확정" 전: `imageUrl` 사용 (기존 cover 미리보기, transform 적용)
+  - "이미지 확정" 후: `croppedImageUrl` 사용 (실제 크롭된 비트맵, transform 미적용)
+  - 크롭된 이미지는 이미 편집 상태가 적용된 상태이므로 CSS transform(scale, rotation) 적용하지 않음
+  - Custom2 레이아웃 컴포넌트에서 `slot.croppedImageUrl` prop을 `ImageSlot`에 전달
+- **출력 전 필수 검사**
+  - Custom2 템플릿에서 PDF/JPEG 출력 시도 시, 이미지가 있는 슬롯 중 확정되지 않은 슬롯이 있으면 경고 메시지 표시
+  - 검사 로직:
+    - `handleExportPDF()` 및 `handleExportJPEG()` 함수 시작 부분에 검사 추가
+    - 모든 페이지를 순회하며 Custom2 템플릿인지 확인
+    - Custom2 템플릿인 경우, 각 슬롯에 대해 `hasImage && (!isConfirmed || !croppedImageUrl)` 조건 확인
+    - 조건을 만족하는 슬롯이 하나라도 있으면 검사 실패
+  - 검사 실패 시:
+    - `alert()` 함수로 경고 메시지 표시: "커스텀2 템플릿에서는 출력 전에 반드시 '이미지 확정' 버튼을 눌러주세요."
+    - 출력 프로세스 즉시 중단 (`return` 처리)
+  - 검사 통과 시:
+    - 모든 슬롯이 확정된 경우(`isConfirmed: true` 및 `croppedImageUrl` 존재)에만 출력 진행
+    - 출력 시 `croppedImageUrl`이 있으면 해당 이미지를 사용하여 출력
+- **홈화면 카드 추가 및 디자인**
+  - "커스텀2" 카드 추가 (기호: "⧉")
+  - 카드 문구: "커스텀 사진원본비율" (White 색상)
+  - 커스텀2 카드 전용 디자인:
+    - 기호 색상: Accent Mint #AEEAFF
+    - 카드 테두리: Accent Mint #AEEAFF
+    - Hover 시 glow 효과: Accent Mint 계열 (rgba(174,234,255,0.6))
+    - 버튼 hover 효과: Accent Mint 그라데이션 (#AEEAFF → #8DD5FF)
+- **템플릿 카드 변경사항**
+  - 2컷 템플릿 카드 제거 (홈 화면 및 사진편집 페이지)
+  - 커스텀 템플릿 카드 기호 변경: "∞" → "◳"
+
+### 18.9 템플릿 카드 UI 개선 (2025-01-XX)
+- **2컷 템플릿 카드 제거**
+  - 홈 화면과 사진편집 페이지에서 2컷 템플릿 카드 완전 제거
+  - 현재 표시되는 템플릿: 4컷, 6컷, 커스텀, 커스텀2
+- **커스텀 템플릿 카드 기호 변경**
+  - 기존 기호 "∞" → 새로운 기호 "◳"로 변경
+  - 홈 화면과 사진편집 페이지에 동일하게 적용
+- **커스텀2 템플릿 카드 디자인 개선**
+  - 기호 변경: "Ⅱ" → "⧉" (로마 숫자에서 특수 기호로 변경)
+  - 색상 통일: Accent Mint #AEEAFF 계열로 통일
+    - 기호 색상: #AEEAFF
+    - 카드 테두리: #AEEAFF
+    - Hover glow 효과: rgba(174,234,255,0.6)
+  - 텍스트 색상: "커스텀 사진원본비율" 문구는 White로 표시
+  - 버튼 hover 효과: Accent Mint 그라데이션 (#AEEAFF → #8DD5FF)
+  - 기존 hover 효과(scale, transition) 유지
+
+### 18.10 템플릿별 비율유지 버튼 제거 (2025-01-XX)
+- **4컷 템플릿 (가로형, 세로형)**: "비율유지" 버튼 완전 제거
+  - 사진 편집 화면에서 이미지에 마우스를 올려도 "비율유지" 버튼이 표시되지 않음
+  - UI 및 기능 모두 제거됨
+- **6컷 템플릿 (가로형, 세로형)**: "비율유지" 버튼 완전 제거
+  - 사진 편집 화면에서 이미지에 마우스를 올려도 "비율유지" 버튼이 표시되지 않음
+  - UI 및 기능 모두 제거됨
+- **커스텀1 템플릿 (가로형, 세로형)**: "비율유지" 버튼 완전 제거
+  - 사진 편집 화면에서 이미지에 마우스를 올려도 "비율유지" 버튼이 표시되지 않음
+  - UI 및 기능 모두 제거됨
+- **2컷 템플릿**: 기존 동작 유지 (비율유지 버튼 표시)
+- **커스텀2 템플릿**: 기존 동작 유지 (비율유지 버튼 없음, cover 모드 강제)
 

@@ -90,6 +90,7 @@ function CustomLandscapeLayout({
                   onAddDescription={(description) => onAddDescription(slot.id, description)}
                   onFitModeChange={onFitModeChange ? (fitMode) => onFitModeChange(slot.id, fitMode) : undefined}
                   isCustomTemplate={true}
+                  hideFitModeToggle={true}
                   style={{
                     width: '100%',
                     height: '100%',

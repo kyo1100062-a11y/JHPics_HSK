@@ -16,6 +16,7 @@ interface ImageSlotProps {
   onFitModeChange?: (fitMode: 'fill' | 'cover') => void // fitMode 변경 시 호출
   isCustomTemplate?: boolean // 커스텀 템플릿 여부
   isCustom2Template?: boolean // 커스텀2 템플릿 여부 (원본비율 cover 전용)
+  hideFitModeToggle?: boolean // 비율유지 버튼 숨김 여부
   className?: string
   style?: React.CSSProperties
 }
@@ -35,6 +36,7 @@ function ImageSlot({
   onFitModeChange,
   isCustomTemplate = false,
   isCustom2Template = false,
+  hideFitModeToggle = false,
   className = '',
   style = {}
 }: ImageSlotProps) {
@@ -181,9 +183,9 @@ function ImageSlot({
                     }, 0)
                   }
                 }}
-                onToggleFitMode={isCustom2Template ? undefined : () => {
+                onToggleFitMode={(isCustom2Template || hideFitModeToggle) ? undefined : () => {
                   // 비율유지 버튼 클릭 시 'cover'로 전환 (store에 저장)
-                  // 커스텀2 템플릿에서는 비율유지 버튼 표시 안 함
+                  // 커스텀2 템플릿 또는 hideFitModeToggle이 true인 경우 비율유지 버튼 표시 안 함
                   if (onFitModeChange) {
                     onFitModeChange('cover')
                   }

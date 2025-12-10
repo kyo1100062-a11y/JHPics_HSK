@@ -14,11 +14,10 @@ function Upload() {
 
         {/* Template Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-          <TemplateCard type="2컷" icon="2" />
           <TemplateCard type="4컷" icon="4" />
           <TemplateCard type="6컷" icon="6" />
-          <TemplateCard type="커스텀" icon="∞" />
-          <TemplateCard type="커스텀2" icon="∞2" />
+          <TemplateCard type="커스텀" icon="◳" />
+          <TemplateCard type="커스텀2" icon="⧉" />
         </div>
       </section>
     </div>

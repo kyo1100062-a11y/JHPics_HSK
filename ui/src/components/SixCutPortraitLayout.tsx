@@ -46,6 +46,7 @@ function SixCutPortraitLayout({
             onEdit={() => onEdit(slot.id)}
             onAddDescription={(description) => onAddDescription(slot.id, description)}
             onFitModeChange={onFitModeChange ? (fitMode) => onFitModeChange(slot.id, fitMode) : undefined}
+            hideFitModeToggle={true}
             style={{
               width: slotWidth,
               height: '100%',
@@ -75,6 +76,7 @@ function SixCutPortraitLayout({
             onEdit={() => onEdit(slot.id)}
             onAddDescription={(description) => onAddDescription(slot.id, description)}
             onFitModeChange={onFitModeChange ? (fitMode) => onFitModeChange(slot.id, fitMode) : undefined}
+            hideFitModeToggle={true}
             style={{
               width: slotWidth,
               height: '100%',
@@ -104,6 +106,7 @@ function SixCutPortraitLayout({
             onEdit={() => onEdit(slot.id)}
             onAddDescription={(description) => onAddDescription(slot.id, description)}
             onFitModeChange={onFitModeChange ? (fitMode) => onFitModeChange(slot.id, fitMode) : undefined}
+            hideFitModeToggle={true}
             style={{
               width: slotWidth,
               height: '100%',

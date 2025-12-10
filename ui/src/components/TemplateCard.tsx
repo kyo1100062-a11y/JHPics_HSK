@@ -37,15 +37,40 @@ function TemplateCard({ type, icon }: TemplateCardProps) {
     navigate(`/editor?template=${templateId}`)
   }
 
+  const isCustom2 = type === '커스텀2'
+  const displayIcon = isCustom2 ? '⧉' : icon
+  const baseClasses = 'bg-deep-blue border rounded-2xl p-8 flex flex-col items-center gap-6 hover:scale-[1.06] transition-all duration-250 ease-out cursor-pointer'
+  const borderClasses = isCustom2 
+    ? '' 
+    : 'border-soft-blue hover:border-neoblue'
+  const shadowClasses = isCustom2 
+    ? 'hover:shadow-[0_0_25px_rgba(174,234,255,0.6)]' 
+    : 'hover:shadow-[0_0_25px_rgba(76,111,255,0.6)]'
+  const iconColor = isCustom2 ? '' : 'text-neoblue'
+  const textColor = isCustom2 ? '' : 'text-white'
+
   return (
-    <div className="bg-deep-blue border border-soft-blue rounded-2xl p-8 flex flex-col items-center gap-6 hover:scale-[1.06] hover:border-neoblue hover:shadow-[0_0_25px_rgba(76,111,255,0.6)] transition-all duration-250 ease-out cursor-pointer">
+    <div 
+      className={`${baseClasses} ${borderClasses} ${shadowClasses}`}
+      style={isCustom2 ? { borderColor: '#AEEAFF' } : {}}
+      onMouseEnter={(e) => {
+        if (isCustom2) {
+          e.currentTarget.style.borderColor = '#AEEAFF'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (isCustom2) {
+          e.currentTarget.style.borderColor = '#AEEAFF'
+        }
+      }}
+    >
       {/* 상단: 큰 숫자/기호 */}
-      <div className="text-7xl font-inter font-bold text-neoblue">
-        {icon}
+      <div className={`text-7xl font-inter font-bold ${iconColor}`} style={isCustom2 ? { color: '#AEEAFF' } : {}}>
+        {displayIcon}
       </div>
 
       {/* 중간: Type 텍스트 */}
-      <div className="text-white font-suit font-medium text-lg">
+      <div className={`font-suit font-medium text-lg ${textColor}`} style={isCustom2 ? {} : {}}>
         {type === '커스텀2' ? '커스텀 사진원본비율' : `Type ${type}`}
       </div>
 
@@ -56,7 +81,11 @@ function TemplateCard({ type, icon }: TemplateCardProps) {
             e.stopPropagation()
             handleTemplateSelect('portrait')
           }}
-          className="flex-1 px-4 py-2 rounded-full border border-soft-blue text-white hover:bg-gradient-to-r hover:from-neoblue hover:to-soft-blue hover:shadow-md transition-all duration-200"
+          className={`flex-1 px-4 py-2 rounded-full border text-white hover:shadow-md transition-all duration-200 ${
+            isCustom2 
+              ? 'border-[#AEEAFF] hover:bg-gradient-to-r hover:from-[#AEEAFF] hover:to-[#8DD5FF]' 
+              : 'border-soft-blue hover:bg-gradient-to-r hover:from-neoblue hover:to-soft-blue'
+          }`}
         >
           세로형
         </button>
@@ -65,7 +94,11 @@ function TemplateCard({ type, icon }: TemplateCardProps) {
             e.stopPropagation()
             handleTemplateSelect('landscape')
           }}
-          className="flex-1 px-4 py-2 rounded-full border border-soft-blue text-white hover:bg-gradient-to-r hover:from-neoblue hover:to-soft-blue hover:shadow-md transition-all duration-200"
+          className={`flex-1 px-4 py-2 rounded-full border text-white hover:shadow-md transition-all duration-200 ${
+            isCustom2 
+              ? 'border-[#AEEAFF] hover:bg-gradient-to-r hover:from-[#AEEAFF] hover:to-[#8DD5FF]' 
+              : 'border-soft-blue hover:bg-gradient-to-r hover:from-neoblue hover:to-soft-blue'
+          }`}
         >
           가로형
         </button>
