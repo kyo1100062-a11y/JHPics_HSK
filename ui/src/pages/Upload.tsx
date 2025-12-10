@@ -18,6 +18,7 @@ function Upload() {
           <TemplateCard type="4컷" icon="4" />
           <TemplateCard type="6컷" icon="6" />
           <TemplateCard type="커스텀" icon="∞" />
+          <TemplateCard type="커스텀2" icon="∞2" />
         </div>
       </section>
     </div>

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
 interface TemplateCardProps {
-  type: '2컷' | '4컷' | '6컷' | '커스텀'
+  type: '2컷' | '4컷' | '6컷' | '커스텀' | '커스텀2'
   icon: string
 }
 
@@ -26,6 +26,10 @@ function TemplateCard({ type, icon }: TemplateCardProps) {
       '커스텀': {
         portrait: 'custom-portrait',
         landscape: 'custom-landscape'
+      },
+      '커스텀2': {
+        portrait: 'custom2-portrait',
+        landscape: 'custom2-landscape'
       }
     }
 
@@ -42,7 +46,7 @@ function TemplateCard({ type, icon }: TemplateCardProps) {
 
       {/* 중간: Type 텍스트 */}
       <div className="text-white font-suit font-medium text-lg">
-        Type {type}
+        {type === '커스텀2' ? '커스텀 사진원본비율' : `Type ${type}`}
       </div>
 
       {/* 하단: 세로형/가로형 버튼 */}

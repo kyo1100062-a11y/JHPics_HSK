@@ -12,11 +12,13 @@ import SixCutPortraitLayout from '../components/SixCutPortraitLayout'
 import SixCutLandscapeLayout from '../components/SixCutLandscapeLayout'
 import CustomPortraitLayout from '../components/CustomPortraitLayout'
 import CustomLandscapeLayout from '../components/CustomLandscapeLayout'
+import Custom2OriginalRatioPortraitLayout from '../components/Custom2OriginalRatioPortraitLayout'
+import Custom2OriginalRatioLandscapeLayout from '../components/Custom2OriginalRatioLandscapeLayout'
 import ImageEditModal from '../components/ImageEditModal'
 import { exportToPDF, exportToJPEG } from '../utils/exportUtils'
 import { logger } from '../utils/logger'
 import { showToast } from '../components/Toast'
-import { isTemplateType } from '../utils/typeGuards'
+import { isTemplateType, isCustom2Template } from '../utils/typeGuards'
 import { renderAllPagesForExport, cleanupExportContainer } from '../utils/exportRenderUtils'
 import type { Root } from 'react-dom/client'
 
@@ -168,6 +170,96 @@ function Editor() {
     }
   }, [])
 
+  // Custom2 이미지 확정 핸들러 (Step 2: 자동 크롭 구현)
+  const handleConfirmImagesForCustom2 = async () => {
+    const page = currentPage
+    if (!page || !isCustom2Template(template)) return
+
+    const { id: pageId, slots } = page
+
+    for (const slot of slots) {
+      const hasImage = !!slot.imageUrl || !!slot.imageFile
+      if (!hasImage) continue
+
+      // 1) 실제 이미지 DOM 찾기 (Custom2의 ImageSlot에서 img에 data-slot-id 같은 식별자가 있다고 가정)
+      const imgElement = document.querySelector<HTMLImageElement>(
+        `img[data-slot-id="${slot.id}"]`
+      )
+      if (!imgElement) continue
+
+      // 2) 이미지가 들어가는 wrapper (이미지 영역만)를 기준으로 rect 계산
+      const imageWrapper = imgElement.closest('.image-wrapper') as HTMLElement | null
+      const containerElement = imageWrapper || imgElement.parentElement
+      if (!containerElement) continue
+
+      const rect = containerElement.getBoundingClientRect()
+      const slotWidth = rect.width
+      const slotHeight = rect.height
+
+      // 3) 원본 이미지 로드 (naturalWidth / naturalHeight 사용)
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.src = imgElement.src
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject()
+      })
+
+      const { naturalWidth, naturalHeight } = img
+      if (!naturalWidth || !naturalHeight) continue
+
+      // 4) cover 기준 scale 계산
+      const exportScale = 3 // 필요에 따라 조정
+      const canvasWidth = slotWidth * exportScale
+      const canvasHeight = slotHeight * exportScale
+
+      const coverScale = Math.max(
+        canvasWidth / naturalWidth,
+        canvasHeight / naturalHeight
+      )
+
+      const drawnWidth = naturalWidth * coverScale
+      const drawnHeight = naturalHeight * coverScale
+      const offsetX = (canvasWidth - drawnWidth) / 2
+      const offsetY = (canvasHeight - drawnHeight) / 2
+
+      const canvas = document.createElement('canvas')
+      canvas.width = canvasWidth
+      canvas.height = canvasHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) continue
+
+      // 회전 및 스케일 적용 (현재 편집 상태 반영)
+      ctx.save()
+      ctx.translate(canvasWidth / 2, canvasHeight / 2)
+      ctx.rotate((slot.rotation * Math.PI) / 180)
+      ctx.scale(slot.scale, slot.scale)
+      ctx.translate(-canvasWidth / 2, -canvasHeight / 2)
+
+      ctx.drawImage(
+        img,
+        offsetX,
+        offsetY,
+        drawnWidth,
+        drawnHeight
+      )
+
+      ctx.restore()
+
+      const croppedUrl = canvas.toDataURL('image/jpeg', 0.9)
+
+      // 5) slot 업데이트 (croppedImageUrl + isConfirmed)
+      updateSlot(pageId, slot.id, {
+        croppedImageUrl: croppedUrl,
+        isConfirmed: true,
+      })
+    }
+
+    console.log('[Custom2] 이미지 확정 완료 - 자동 크롭 적용')
+    showToast('이미지 확정이 완료되었습니다.', 'success')
+  }
+
   // 현재화면 초기화 핸들러
   const handleReset = () => {
     if (!template) return
@@ -193,6 +285,22 @@ function Editor() {
 
   const handleExportPDF = async () => {
     if (!currentPage || isExporting) return
+
+    // Custom2 템플릿에서 이미지 확정 여부 검사
+    const hasUnconfirmedSlotsInCustom2 = pages.some((page) => {
+      if (!isCustom2Template(template)) return false
+
+      return page.slots.some((slot) => {
+        const hasImage = !!slot.imageUrl || !!slot.imageFile
+        const notConfirmed = !slot.isConfirmed || !slot.croppedImageUrl
+        return hasImage && notConfirmed
+      })
+    })
+
+    if (hasUnconfirmedSlotsInCustom2) {
+      alert("커스텀2 템플릿에서는 출력 전에 반드시 '이미지 확정' 버튼을 눌러주세요.")
+      return // 여기서 export 중단
+    }
 
     setIsExporting(true)
     let exportContainer: HTMLDivElement | null = null
@@ -240,6 +348,22 @@ function Editor() {
 
   const handleExportJPEG = async () => {
     if (!currentPage || isExporting) return
+
+    // Custom2 템플릿에서 이미지 확정 여부 검사
+    const hasUnconfirmedSlotsInCustom2 = pages.some((page) => {
+      if (!isCustom2Template(template)) return false
+
+      return page.slots.some((slot) => {
+        const hasImage = !!slot.imageUrl || !!slot.imageFile
+        const notConfirmed = !slot.isConfirmed || !slot.croppedImageUrl
+        return hasImage && notConfirmed
+      })
+    })
+
+    if (hasUnconfirmedSlotsInCustom2) {
+      alert("커스텀2 템플릿에서는 출력 전에 반드시 '이미지 확정' 버튼을 눌러주세요.")
+      return // 여기서 export 중단
+    }
 
     setIsExporting(true)
     let exportContainer: HTMLDivElement | null = null
@@ -435,11 +559,18 @@ function Editor() {
                       case 'custom-landscape':
                         LayoutComponent = CustomLandscapeLayout
                         break
+                      case 'custom2-portrait':
+                        LayoutComponent = Custom2OriginalRatioPortraitLayout
+                        break
+                      case 'custom2-landscape':
+                        LayoutComponent = Custom2OriginalRatioLandscapeLayout
+                        break
                       default:
                         LayoutComponent = TwoCutPortraitLayout
                     }
                     const Layout = LayoutComponent
-                    const isCustomTemplate = template === 'custom-portrait' || template === 'custom-landscape'
+                    const isCustomTemplate = template === 'custom-portrait' || template === 'custom-landscape' ||
+                                             template === 'custom2-portrait' || template === 'custom2-landscape'
                     return (
                       <Layout
                         slots={currentPage.slots}
@@ -630,6 +761,16 @@ function Editor() {
             <div className="bg-deep-blue border border-soft-blue rounded-lg p-4">
               <h3 className="text-white font-bold mb-4">출력 옵션</h3>
               <div className="space-y-3">
+                {/* Custom2 전용 이미지 확정 버튼 */}
+                {isCustom2Template(template) && (
+                  <button
+                    type="button"
+                    onClick={handleConfirmImagesForCustom2}
+                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    이미지 확정
+                  </button>
+                )}
                 <button
                   onClick={handleExportPDF}
                   disabled={isExporting}

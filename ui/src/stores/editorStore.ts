@@ -10,6 +10,8 @@ export type TemplateType =
   | 'sixCut-landscape'
   | 'custom-portrait'
   | 'custom-landscape'
+  | 'custom2-portrait'
+  | 'custom2-landscape'
 
 export interface ImageSlot {
   id: string
@@ -19,6 +21,8 @@ export interface ImageSlot {
   rotation: number // 0, 90, 180, 270
   description?: string
   fitMode?: 'fill' | 'cover' // 'fill': 전체 표시 (왜곡 허용), 'cover': 비율 유지 (일부 잘림)
+  croppedImageUrl?: string // Custom2에서 자동 크롭된 이미지
+  isConfirmed?: boolean // "이미지 확정" 버튼을 통해 확정되었는지
 }
 
 export interface PageMetadata {
@@ -96,15 +100,19 @@ const createSlotsForTemplate = (template: TemplateType): ImageSlot[] => {
     'sixCut-portrait': 6,
     'sixCut-landscape': 6,
     'custom-portrait': 0,
-    'custom-landscape': 0
+    'custom-landscape': 0,
+    'custom2-portrait': 0,
+    'custom2-landscape': 0
   }
 
   const count = slotCounts[template] || 0
+  // 커스텀2 템플릿은 항상 cover 모드로 시작
+  const defaultFitMode = (template === 'custom2-portrait' || template === 'custom2-landscape') ? 'cover' as const : 'fill' as const
   return Array.from({ length: count }, (_, i) => ({
     id: `slot-${Date.now()}-${i}`,
     scale: 1,
     rotation: 0,
-    fitMode: 'fill' as const // 기본값: 전체 표시 (왜곡 허용)
+    fitMode: defaultFitMode
   }))
 }
 
@@ -234,7 +242,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     if (!page) return
 
     // 커스텀 템플릿만 슬롯 추가 가능
-    if (template !== 'custom-portrait' && template !== 'custom-landscape') {
+    if (template !== 'custom-portrait' && template !== 'custom-landscape' && 
+        template !== 'custom2-portrait' && template !== 'custom2-landscape') {
       return
     }
 
@@ -245,11 +254,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }
 
     // 새 슬롯 생성
+    // 커스텀2 템플릿은 항상 cover 모드로 시작
+    const defaultFitMode = (template === 'custom2-portrait' || template === 'custom2-landscape') ? 'cover' as const : 'fill' as const
     const newSlot: ImageSlot = {
       id: `slot-${Date.now()}-${Math.random()}`,
       scale: 1,
       rotation: 0,
-      fitMode: 'fill' // 기본값: 전체 표시 (왜곡 허용)
+      fitMode: defaultFitMode
     }
 
     set({

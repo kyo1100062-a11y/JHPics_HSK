@@ -14,7 +14,9 @@ export function isTemplateType(value: string | null): value is TemplateType {
     'sixCut-portrait',
     'sixCut-landscape',
     'custom-portrait',
-    'custom-landscape'
+    'custom-landscape',
+    'custom2-portrait',
+    'custom2-landscape'
   ]
   
   return validTemplates.includes(value as TemplateType)
@@ -43,5 +45,15 @@ export function isValidImageFile(file: File): boolean {
  */
 export function isBlobUrl(url: string | undefined): boolean {
   return url !== undefined && url.startsWith('blob:')
+}
+
+/**
+ * Custom2 템플릿인지 확인 (원본비율 템플릿)
+ */
+export function isCustom2Template(templateType: string | null | undefined): boolean {
+  return (
+    templateType === 'custom2-portrait' ||
+    templateType === 'custom2-landscape'
+  )
 }
 

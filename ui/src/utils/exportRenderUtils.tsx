@@ -10,6 +10,8 @@ import SixCutPortraitLayout from '../components/SixCutPortraitLayout'
 import SixCutLandscapeLayout from '../components/SixCutLandscapeLayout'
 import CustomPortraitLayout from '../components/CustomPortraitLayout'
 import CustomLandscapeLayout from '../components/CustomLandscapeLayout'
+import Custom2OriginalRatioPortraitLayout from '../components/Custom2OriginalRatioPortraitLayout'
+import Custom2OriginalRatioLandscapeLayout from '../components/Custom2OriginalRatioLandscapeLayout'
 import { logger } from './logger'
 
 interface RenderResult {
@@ -66,6 +68,10 @@ export async function renderAllPagesForExport(
         return CustomPortraitLayout
       case 'custom-landscape':
         return CustomLandscapeLayout
+      case 'custom2-portrait':
+        return Custom2OriginalRatioPortraitLayout
+      case 'custom2-landscape':
+        return Custom2OriginalRatioLandscapeLayout
       default:
         return TwoCutPortraitLayout
     }

@@ -4,6 +4,7 @@ import ImageSlotActions from './ImageSlotActions'
 interface ImageSlotProps {
   slotId: string
   imageUrl?: string
+  croppedImageUrl?: string // Custom2에서 자동 크롭된 이미지
   description?: string
   scale?: number
   rotation?: number
@@ -14,6 +15,7 @@ interface ImageSlotProps {
   onAddDescription: (description: string) => void
   onFitModeChange?: (fitMode: 'fill' | 'cover') => void // fitMode 변경 시 호출
   isCustomTemplate?: boolean // 커스텀 템플릿 여부
+  isCustom2Template?: boolean // 커스텀2 템플릿 여부 (원본비율 cover 전용)
   className?: string
   style?: React.CSSProperties
 }
@@ -21,6 +23,7 @@ interface ImageSlotProps {
 function ImageSlot({
   slotId: _slotId,
   imageUrl,
+  croppedImageUrl,
   description,
   scale = 1,
   rotation = 0,
@@ -31,9 +34,12 @@ function ImageSlot({
   onAddDescription,
   onFitModeChange,
   isCustomTemplate = false,
+  isCustom2Template = false,
   className = '',
   style = {}
 }: ImageSlotProps) {
+  // Custom2 템플릿에서는 croppedImageUrl 우선 사용
+  const displayImageUrl = croppedImageUrl ?? imageUrl
   const [isHovered, setIsHovered] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isDescriptionActive, setIsDescriptionActive] = useState(false) // 내용추가 버튼 클릭 시 활성화 상태
@@ -74,8 +80,9 @@ function ImageSlot({
         return
       }
       // 새 이미지 업로드 시 기본값으로 리셋 (store에 저장)
+      // 커스텀2 템플릿은 항상 cover 모드로 설정
       if (onFitModeChange) {
-        onFitModeChange('fill')
+        onFitModeChange(isCustom2Template ? 'cover' : 'fill')
       }
       onImageSelect(file)
     }
@@ -103,8 +110,9 @@ function ImageSlot({
         return
       }
       // 새 이미지 업로드 시 기본값으로 리셋 (store에 저장)
+      // 커스텀2 템플릿은 항상 cover 모드로 설정
       if (onFitModeChange) {
-        onFitModeChange('fill')
+        onFitModeChange(isCustom2Template ? 'cover' : 'fill')
       }
       onImageSelect(file)
     }
@@ -129,7 +137,7 @@ function ImageSlot({
         className="hidden"
       />
 
-      {imageUrl ? (
+      {displayImageUrl ? (
         <div className="w-full h-full flex flex-col" style={{ border: '1px dashed #000000', overflow: 'visible' }}>
           <div
             className="bg-gray-100 relative overflow-hidden flex items-center justify-center"
@@ -142,15 +150,18 @@ function ImageSlot({
             }}
           >
             <img
-              src={imageUrl}
+              src={displayImageUrl}
               alt=""
+              data-slot-id={_slotId}
               className="image-wrapper"
               style={{
                 width: '100%',
                 height: '100%',
-                objectFit: fitMode === 'cover' ? 'cover' : 'fill',
+                // 커스텀2 템플릿은 항상 cover 모드 강제
+                // croppedImageUrl이 있으면 transform 적용하지 않음 (이미 크롭된 이미지이므로)
+                objectFit: isCustom2Template ? 'cover' : (fitMode === 'cover' ? 'cover' : 'fill'),
                 objectPosition: 'center center',
-                transform: `scale(${scale}) rotate(${rotation}deg)`,
+                transform: croppedImageUrl ? 'none' : `scale(${scale}) rotate(${rotation}deg)`,
                 transformOrigin: 'center center',
                 display: 'block'
               }}
@@ -170,14 +181,15 @@ function ImageSlot({
                     }, 0)
                   }
                 }}
-                onToggleFitMode={() => {
+                onToggleFitMode={isCustom2Template ? undefined : () => {
                   // 비율유지 버튼 클릭 시 'cover'로 전환 (store에 저장)
+                  // 커스텀2 템플릿에서는 비율유지 버튼 표시 안 함
                   if (onFitModeChange) {
                     onFitModeChange('cover')
                   }
                 }}
                 hasDescription={description !== undefined && description && description.trim() ? true : false}
-                fitMode={fitMode}
+                fitMode={isCustom2Template ? 'cover' : fitMode}
               />
             )}
           </div>
