@@ -37,9 +37,11 @@ function CustomLandscapeLayout({
   const rows = slots.length > 0 ? Math.ceil(slots.length / cols) : 1
   const slotWidth = `calc((100% - ${(cols - 1) * GAP_PX}px) / ${cols})`
   
-  // 가로형 3행(슬롯 7-12개)에서 텍스트 영역 보호를 위한 최소 높이 계산
+  // 가로형 3행(슬롯 7-12개) 및 4행(슬롯 13-16개)에서 텍스트 영역 보호를 위한 최소 높이 계산
   // 텍스트 영역 21px + 이미지 최소 높이 100px = 121px (여유 있게 130px)
-  const isProblematicRows = rows === 3 && slots.length >= 7 && slots.length <= 12
+  const isProblematicRows = 
+    (rows === 3 && slots.length >= 7 && slots.length <= 12) ||
+    (rows === 4 && slots.length >= 13 && slots.length <= 16)
   const minSlotHeight = isProblematicRows ? '130px' : '200px'
 
   return (
