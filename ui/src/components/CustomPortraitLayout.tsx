@@ -49,6 +49,11 @@ function CustomPortraitLayout({
   const rows = getRowsForPortrait(slots.length)
   const cols = slots.length > 0 ? Math.ceil(slots.length / rows) : 1
   const slotWidth = `calc((100% - ${(cols - 1) * GAP_PX}px) / ${cols})`
+  
+  // 세로형 4행(슬롯 10-12개)에서 텍스트 영역 보호를 위한 최소 높이 계산
+  // 텍스트 영역 21px + 이미지 최소 높이 100px = 121px (여유 있게 130px)
+  const isProblematicRows = rows === 4 && slots.length >= 10 && slots.length <= 12
+  const minSlotHeight = isProblematicRows ? '130px' : '200px'
 
   return (
     <div className="relative w-full h-full">
@@ -82,7 +87,7 @@ function CustomPortraitLayout({
             }
             
             return (
-              <div key={slot.id} className="relative" style={{ width: slotWidth, flex: '1 1 0' }}>
+              <div key={slot.id} className="relative" style={{ width: slotWidth, flex: '1 1 0', minHeight: isProblematicRows ? minSlotHeight : 'auto' }}>
                 <ImageSlot
                   slotId={slot.id}
                   imageUrl={slot.imageUrl}
@@ -100,11 +105,11 @@ function CustomPortraitLayout({
                     width: '100%',
                     height: '100%',
                     minWidth: '200px',
-                    minHeight: '200px',
+                    minHeight: isProblematicRows ? minSlotHeight : '200px',
                     flex: '1 1 0',
                     flexShrink: 0,
                     flexBasis: '0',
-                    overflow: 'hidden'
+                    overflow: 'visible' // 텍스트 영역 보호를 위해 visible로 변경 (하위에서 제어)
                   }}
                 />
                 {/* 커스텀 템플릿 슬롯 삭제 버튼 (슬롯 우측 상단) */}

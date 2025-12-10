@@ -130,12 +130,12 @@ function ImageSlot({
       />
 
       {imageUrl ? (
-        <div className="w-full h-full flex flex-col" style={{ border: '1px dashed #000000', overflow: 'hidden' }}>
+        <div className="w-full h-full flex flex-col" style={{ border: '1px dashed #000000', overflow: 'visible' }}>
           <div
             className="bg-gray-100 relative overflow-hidden flex items-center justify-center"
             style={{
               flex: '1 1 0',
-              minHeight: '200px',
+              minHeight: isCustomTemplate ? '0' : '200px', // 커스텀 템플릿은 유연하게
               minWidth: '200px',
               width: '100%',
               height: '100%'

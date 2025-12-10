@@ -179,13 +179,22 @@ export async function exportToPDF(
               // 커스텀 템플릿 캡션 주변 부모 요소의 overflow 및 정렬 확인 및 수정
               // 부모 컨테이너 찾기 (flex-shrink-0 bg-white)
               let parent = div.parentElement
+              let slotContainer: HTMLElement | null = null // 슬롯 최상위 컨테이너 (overflow 조정용)
+              
               while (parent) {
                 const parentStyle = window.getComputedStyle(parent)
+                
+                // 슬롯 최상위 컨테이너 찾기 (ImageSlot의 최상위 div, border가 있는 div)
+                if (!slotContainer && parent.style.border && parent.style.border.includes('dashed')) {
+                  slotContainer = parent as HTMLElement
+                }
+                
                 // overflow: hidden인 부모 컨테이너를 visible로 변경
                 if (parentStyle.overflow === 'hidden' || parentStyle.overflowY === 'hidden') {
                   parent.style.overflow = 'visible'
                   parent.style.overflowY = 'visible'
                 }
+                
                 // 부모 컨테이너가 flex인 경우 justify-content: center 확인 및 설정
                 if (parentStyle.display === 'flex' || parentStyle.display === '-webkit-flex') {
                   // 부모가 flex이고 justify-center가 없으면 추가
@@ -194,15 +203,46 @@ export async function exportToPDF(
                     parent.style.justifyContent = 'center'
                   }
                 }
+                
                 // 부모 컨테이너의 text-align이 left로 설정되어 있거나 비어있으면 center로 변경 (커스텀 템플릿만)
                 if (parentStyle.textAlign === 'left' || parentStyle.textAlign === '') {
                   parent.style.textAlign = 'center'
                 }
+                
                 // CustomLandscapeLayout이나 CustomPortraitLayout의 직접 자식까지 확인
                 if (parent.classList.contains('relative') && parent.querySelector('div[class*="flex"][class*="flex-col"]')) {
                   break
                 }
                 parent = parent.parentElement
+              }
+              
+              // 문제 구간(세로형 4행 또는 가로형 3행)에서 슬롯 컨테이너 높이 보정
+              // 텍스트 영역이 잘리지 않도록 슬롯 컨테이너의 최소 높이 보장
+              if (slotContainer) {
+                const slotComputedStyle = window.getComputedStyle(slotContainer)
+                const slotHeight = parseFloat(slotComputedStyle.height || '0')
+                const textAreaHeight = 21 // 텍스트 영역 높이 (커스텀 템플릿)
+                
+                // 슬롯 높이가 텍스트 영역보다 작으면 최소 높이 설정
+                if (slotHeight > 0 && slotHeight < textAreaHeight + 100) {
+                  // 텍스트 영역 21px + 이미지 최소 공간 100px = 121px 이상 보장
+                  slotContainer.style.minHeight = '130px'
+                  slotContainer.style.overflow = 'visible'
+                }
+                
+                // 텍스트 영역 부모 컨테이너(div.flex-shrink-0) 높이 강제 설정
+                const textAreaParent = div.parentElement
+                if (textAreaParent) {
+                  const textParentStyle = window.getComputedStyle(textAreaParent)
+                  // 텍스트 영역이 활성화된 경우 높이 보장
+                  if (value && value.trim() && (textParentStyle.height === '0px' || parseFloat(textParentStyle.height || '0') < 21)) {
+                    textAreaParent.style.height = '21px'
+                    textAreaParent.style.minHeight = '21px'
+                    textAreaParent.style.maxHeight = '21px'
+                    textAreaParent.style.overflow = 'visible'
+                    textAreaParent.style.visibility = 'visible'
+                  }
+                }
               }
             }
           })
@@ -576,13 +616,22 @@ export async function exportToJPEG(
               // 커스텀 템플릿 캡션 주변 부모 요소의 overflow 및 정렬 확인 및 수정
               // 부모 컨테이너 찾기 (flex-shrink-0 bg-white)
               let parent = div.parentElement
+              let slotContainer: HTMLElement | null = null // 슬롯 최상위 컨테이너 (overflow 조정용)
+              
               while (parent) {
                 const parentStyle = window.getComputedStyle(parent)
+                
+                // 슬롯 최상위 컨테이너 찾기 (ImageSlot의 최상위 div, border가 있는 div)
+                if (!slotContainer && parent.style.border && parent.style.border.includes('dashed')) {
+                  slotContainer = parent as HTMLElement
+                }
+                
                 // overflow: hidden인 부모 컨테이너를 visible로 변경
                 if (parentStyle.overflow === 'hidden' || parentStyle.overflowY === 'hidden') {
                   parent.style.overflow = 'visible'
                   parent.style.overflowY = 'visible'
                 }
+                
                 // 부모 컨테이너가 flex인 경우 justify-content: center 확인 및 설정
                 if (parentStyle.display === 'flex' || parentStyle.display === '-webkit-flex') {
                   // 부모가 flex이고 justify-center가 없으면 추가
@@ -591,15 +640,46 @@ export async function exportToJPEG(
                     parent.style.justifyContent = 'center'
                   }
                 }
+                
                 // 부모 컨테이너의 text-align이 left로 설정되어 있거나 비어있으면 center로 변경 (커스텀 템플릿만)
                 if (parentStyle.textAlign === 'left' || parentStyle.textAlign === '') {
                   parent.style.textAlign = 'center'
                 }
+                
                 // CustomLandscapeLayout이나 CustomPortraitLayout의 직접 자식까지 확인
                 if (parent.classList.contains('relative') && parent.querySelector('div[class*="flex"][class*="flex-col"]')) {
                   break
                 }
                 parent = parent.parentElement
+              }
+              
+              // 문제 구간(세로형 4행 또는 가로형 3행)에서 슬롯 컨테이너 높이 보정
+              // 텍스트 영역이 잘리지 않도록 슬롯 컨테이너의 최소 높이 보장
+              if (slotContainer) {
+                const slotComputedStyle = window.getComputedStyle(slotContainer)
+                const slotHeight = parseFloat(slotComputedStyle.height || '0')
+                const textAreaHeight = 21 // 텍스트 영역 높이 (커스텀 템플릿)
+                
+                // 슬롯 높이가 텍스트 영역보다 작으면 최소 높이 설정
+                if (slotHeight > 0 && slotHeight < textAreaHeight + 100) {
+                  // 텍스트 영역 21px + 이미지 최소 공간 100px = 121px 이상 보장
+                  slotContainer.style.minHeight = '130px'
+                  slotContainer.style.overflow = 'visible'
+                }
+                
+                // 텍스트 영역 부모 컨테이너(div.flex-shrink-0) 높이 강제 설정
+                const textAreaParent = div.parentElement
+                if (textAreaParent) {
+                  const textParentStyle = window.getComputedStyle(textAreaParent)
+                  // 텍스트 영역이 활성화된 경우 높이 보장
+                  if (value && value.trim() && (textParentStyle.height === '0px' || parseFloat(textParentStyle.height || '0') < 21)) {
+                    textAreaParent.style.height = '21px'
+                    textAreaParent.style.minHeight = '21px'
+                    textAreaParent.style.maxHeight = '21px'
+                    textAreaParent.style.overflow = 'visible'
+                    textAreaParent.style.visibility = 'visible'
+                  }
+                }
               }
             }
           })
