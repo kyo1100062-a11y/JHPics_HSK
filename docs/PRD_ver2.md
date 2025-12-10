@@ -48,7 +48,12 @@
   - 하단: 세로형(Portrait) / 가로형(Landscape) 2개의 선택 버튼
 
 (5) Footer
-- "2025 • 지혜로운 Pictures • A picture is a silent witness • by Denbbura2"
+- 한 줄로 표시: "2025 • 지혜로운 Pictures • A picture is a silent witness • For updates, contact Hong Sun Kyo • CNG"
+- 색상:
+  - "2025 • 지혜로운 Pictures • A picture is a silent witness": Soft Warm Yellow (#F5E6A2)
+  - "For updates, contact Hong Sun Kyo • CNG": Soft White (#F5F6FA)
+- 글씨 크기: text-lg (기본보다 1포인트 증가)
+- 폰트: Pretendard (가독성 있고 깔끔하면서도 감성적인 폰트)
 
 ### 3.2 사진편집 화면 (Editor)
 템플릿 선택 후 편집 작업을 수행하는 메인 화면
@@ -70,7 +75,12 @@
 - 현재 활성 메뉴는 Neoblue 배경으로 표시
 
 ### 4.2 Footer
-"2025 • 지혜로운 Pictures • A picture is a silent witness • by Denbbura2"
+- 한 줄로 표시: "2025 • 지혜로운 Pictures • A picture is a silent witness • For updates, contact Hong Sun Kyo • CNG"
+- 색상:
+  - "2025 • 지혜로운 Pictures • A picture is a silent witness": Soft Warm Yellow (#F5E6A2)
+  - "For updates, contact Hong Sun Kyo • CNG": Soft White (#F5F6FA)
+- 글씨 크기: text-lg (기본보다 1포인트 증가)
+- 폰트: Pretendard (가독성 있고 깔끔하면서도 감성적인 폰트)
 
 ## 5. 템플릿 & 편집기 기능
 
