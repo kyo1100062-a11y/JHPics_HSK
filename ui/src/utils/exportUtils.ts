@@ -28,10 +28,10 @@ export async function exportToPDF(
   const A4_WIDTH_MM = isLandscape ? 297 : 210
   const A4_HEIGHT_MM = isLandscape ? 210 : 297
 
-  // devicePixelRatio를 고려하여 scale 계산 (기본: 4.8, 고화질: 9.6)
-  // 기본 출력: 현재 고화질(4.0)의 1.2배 = 4.8
-  // 고화질 출력: 기본 출력(4.8)의 2배 = 9.6
-  const baseScale = isHighQuality ? 9.6 : 4.8
+  // devicePixelRatio를 고려하여 scale 계산 (기본: 4.8, 고화질: 7.2)
+  // 기본 출력: 4.8 (수정 없음)
+  // 고화질 출력: 기본 출력(4.8)의 약 1.5배 = 7.2
+  const baseScale = isHighQuality ? 7.2 : 4.8
   const devicePixelRatio = window.devicePixelRatio || 1
   const scale = baseScale * devicePixelRatio
 
@@ -507,10 +507,10 @@ export async function exportToJPEG(
 ): Promise<void> {
   const { isHighQuality = false, onProgress, pagesMetadata } = options
 
-  // devicePixelRatio를 고려하여 scale 계산 (기본: 4.8, 고화질: 9.6)
-  // 기본 출력: 현재 고화질(4.0)의 1.2배 = 4.8
-  // 고화질 출력: 기본 출력(4.8)의 2배 = 9.6
-  const baseScale = isHighQuality ? 9.6 : 4.8
+  // devicePixelRatio를 고려하여 scale 계산 (기본: 4.8, 고화질: 7.2)
+  // 기본 출력: 4.8 (수정 없음)
+  // 고화질 출력: 기본 출력(4.8)의 약 1.5배 = 7.2
+  const baseScale = isHighQuality ? 7.2 : 4.8
   const devicePixelRatio = window.devicePixelRatio || 1
   const scale = baseScale * devicePixelRatio
   const quality = isHighQuality ? 0.95 : 0.85
