@@ -18,10 +18,10 @@ function MetadataArea({ metadata, titleStyle }: MetadataAreaProps) {
   
   // 기본 titleStyle (없을 경우)
   const defaultTitleStyle: TitleStyle = {
-    align: 'left',
+    align: 'center',
     fontFamily: 'sans-serif',
     fontSize: 19,
-    bold: false
+    bold: true
   }
   
   const finalTitleStyle = titleStyle || defaultTitleStyle
@@ -29,10 +29,10 @@ function MetadataArea({ metadata, titleStyle }: MetadataAreaProps) {
   // 동적으로 줄 수 계산
   const lines: Array<{ text: string; isFirstLine?: boolean; hasProjectName?: boolean; hasSubProjectName?: boolean }> = []
   
-  // 1줄: 제목 + [사업명 : 사업명값] (한 줄에 표기)
+  // 1줄: 제목 + (사업명값) (한 줄에 표기)
   if (title || projectName) {
-    const titleText = title || '현장확인 사진'
-    const projectText = projectName ? `[사업명 : ${projectName}]` : ''
+    const titleText = title || '현장확인사진'
+    const projectText = projectName ? `(${projectName})` : ''
     lines.push({ 
       text: `${titleText} ${projectText}`.trim(),
       isFirstLine: true,
@@ -65,7 +65,7 @@ function MetadataArea({ metadata, titleStyle }: MetadataAreaProps) {
         lineHeight: '1.5',
         fontSize: 'clamp(12px, 1.5vw, 16px)',
         color: '#333333',
-        letterSpacing: '-0.1em' // 자간거리 10% 감소
+        letterSpacing: 'normal' // 기본값
       }}
     >
       {lines.map((line, index) => {
@@ -79,17 +79,14 @@ function MetadataArea({ metadata, titleStyle }: MetadataAreaProps) {
         
         if (hasProjectName) {
           // 첫 번째 줄에서 "사업명" 부분
-          // 예: "현장확인 사진 [사업명 : 사업명값]"
-          const titleText = title || '현장확인 사진'
+          // 예: "현장확인사진 (사업명값)"
+          const titleText = title || '현장확인사진'
           const projectValue = projectName
           displayContent = (
             <>
               <span style={{ color: '#333333' }}>{titleText}</span>
               {' '}
-              <span style={{ color: '#333333' }}>[사업명 :</span>
-              {' '}
-              <span style={{ color: '#333333' }}>{projectValue}</span>
-              <span style={{ color: '#333333' }}>]</span>
+              <span style={{ color: '#333333' }}>({projectValue})</span>
             </>
           )
         } else if (hasSubProjectName) {

@@ -435,7 +435,7 @@ function Editor() {
                   updatePageMetadata(currentPage.id, { title: e.target.value })
                 }
                 className="w-full px-4 py-2 bg-deep-blue border border-soft-blue rounded-lg text-white focus:outline-none focus:border-neoblue"
-                placeholder="현장확인 사진"
+                placeholder="현장확인사진"
               />
             </div>
             <div className="md:col-span-2">

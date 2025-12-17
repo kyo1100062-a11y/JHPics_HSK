@@ -68,21 +68,21 @@ interface EditorStore {
 const getDefaultTitleStyle = (): TitleStyle => {
   // 현재 MetadataArea에서 사용하는 기본 스타일
   // fontSize: 1.2em (기본 16px 기준으로 약 19.2px)
-  // align: 'left' (text-left)
+  // align: 'center' (text-center)
   // fontFamily: 기본 시스템 폰트 (sans-serif)
-  // bold: false (기본값)
+  // bold: true (기본값)
   return {
-    align: 'left',
+    align: 'center',
     fontFamily: 'sans-serif',
     fontSize: 19, // 1.2em 기준으로 계산 (16px * 1.2 ≈ 19px)
-    bold: false
+    bold: true
   }
 }
 
 const createDefaultPage = (): EditorPage => ({
   id: `page-${Date.now()}-${Math.random()}`,
   metadata: {
-    title: '현장확인 사진',
+    title: '현장확인사진',
     projectName: '',
     subProjectName: '',
     manager: ''

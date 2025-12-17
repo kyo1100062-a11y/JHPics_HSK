@@ -28,8 +28,10 @@ export async function exportToPDF(
   const A4_WIDTH_MM = isLandscape ? 297 : 210
   const A4_HEIGHT_MM = isLandscape ? 210 : 297
 
-  // devicePixelRatio를 고려하여 scale 계산 (일반: 3.0, 고화질: 4.0)
-  const baseScale = isHighQuality ? 4.0 : 3.0
+  // devicePixelRatio를 고려하여 scale 계산 (기본: 4.8, 고화질: 9.6)
+  // 기본 출력: 현재 고화질(4.0)의 1.2배 = 4.8
+  // 고화질 출력: 기본 출력(4.8)의 2배 = 9.6
+  const baseScale = isHighQuality ? 9.6 : 4.8
   const devicePixelRatio = window.devicePixelRatio || 1
   const scale = baseScale * devicePixelRatio
 
@@ -41,7 +43,7 @@ export async function exportToPDF(
   })
 
   // PDF 메타데이터 설정
-  const title = metadata.title || '현장확인 사진'
+  const title = metadata.title || '현장확인사진'
   const projectName = metadata.projectName || ''
   const subProjectName = metadata.subProjectName || ''
   
@@ -114,6 +116,28 @@ export async function exportToPDF(
             if (overlay.querySelector('button')) {
               overlay.style.display = 'none'
             }
+          })
+
+          // 이미지 슬롯 테두리 스타일 변경 (출력 시에만): 점선 → 실선
+          // 1. 인라인 스타일로 border에 dashed가 포함된 요소 찾기
+          const allElements = clonedDoc.querySelectorAll('*')
+          allElements.forEach((el) => {
+            const element = el as HTMLElement
+            const borderStyle = element.style.border || element.style.borderStyle
+            if (borderStyle && borderStyle.includes('dashed')) {
+              element.style.borderStyle = 'solid'
+              element.style.borderColor = '#8a8a8a'
+              element.style.borderWidth = '1px'
+            }
+          })
+          
+          // 2. border-dashed 클래스를 가진 요소 찾기
+          const dashedBorders = clonedDoc.querySelectorAll('[class*="border-dashed"], .border-dashed')
+          dashedBorders.forEach((el) => {
+            const element = el as HTMLElement
+            element.style.borderStyle = 'solid'
+            element.style.borderColor = '#8a8a8a'
+            element.style.borderWidth = '1px'
           })
 
           // 커스텀 템플릿의 textarea를 div로 변환
@@ -340,7 +364,7 @@ export async function exportToPDF(
         'html2canvas scale': scale.toFixed(2),
         'devicePixelRatio': devicePixelRatio,
         '예상 DPI': calculatedDPI.toFixed(0),
-        'JPEG 품질': isHighQuality ? 0.9 : 0.7,
+        'JPEG 품질': isHighQuality ? 0.95 : 0.85,
         '고화질 모드': isHighQuality,
         'export DOM 렌더링 구조': {
           '<img> 태그 수': imgElements.length,
@@ -373,8 +397,8 @@ export async function exportToPDF(
         imgWidth = (canvas.width * A4_HEIGHT_MM) / canvas.height
       }
 
-      // PDF에 이미지 추가
-      const imgData = canvas.toDataURL('image/jpeg', isHighQuality ? 0.9 : 0.7)
+      // PDF에 이미지 추가 (JPEG 품질: 기본 0.85, 고화질 0.95)
+      const imgData = canvas.toDataURL('image/jpeg', isHighQuality ? 0.95 : 0.85)
 
       if (i > 0) {
         pdf.addPage()
@@ -483,11 +507,13 @@ export async function exportToJPEG(
 ): Promise<void> {
   const { isHighQuality = false, onProgress, pagesMetadata } = options
 
-  // devicePixelRatio를 고려하여 scale 계산 (일반: 3.0, 고화질: 4.0)
-  const baseScale = isHighQuality ? 4.0 : 3.0
+  // devicePixelRatio를 고려하여 scale 계산 (기본: 4.8, 고화질: 9.6)
+  // 기본 출력: 현재 고화질(4.0)의 1.2배 = 4.8
+  // 고화질 출력: 기본 출력(4.8)의 2배 = 9.6
+  const baseScale = isHighQuality ? 9.6 : 4.8
   const devicePixelRatio = window.devicePixelRatio || 1
   const scale = baseScale * devicePixelRatio
-  const quality = isHighQuality ? 0.9 : 0.7
+  const quality = isHighQuality ? 0.95 : 0.85
 
   const totalPages = canvasElements.length
   const failedPages: number[] = []
@@ -551,6 +577,28 @@ export async function exportToJPEG(
             if (overlay.querySelector('button')) {
               overlay.style.display = 'none'
             }
+          })
+
+          // 이미지 슬롯 테두리 스타일 변경 (출력 시에만): 점선 → 실선
+          // 1. 인라인 스타일로 border에 dashed가 포함된 요소 찾기
+          const allElements = clonedDoc.querySelectorAll('*')
+          allElements.forEach((el) => {
+            const element = el as HTMLElement
+            const borderStyle = element.style.border || element.style.borderStyle
+            if (borderStyle && borderStyle.includes('dashed')) {
+              element.style.borderStyle = 'solid'
+              element.style.borderColor = '#8a8a8a'
+              element.style.borderWidth = '1px'
+            }
+          })
+          
+          // 2. border-dashed 클래스를 가진 요소 찾기
+          const dashedBorders = clonedDoc.querySelectorAll('[class*="border-dashed"], .border-dashed')
+          dashedBorders.forEach((el) => {
+            const element = el as HTMLElement
+            element.style.borderStyle = 'solid'
+            element.style.borderColor = '#8a8a8a'
+            element.style.borderWidth = '1px'
           })
 
           // 커스텀 템플릿의 textarea를 div로 변환
