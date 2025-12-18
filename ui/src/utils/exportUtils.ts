@@ -6,6 +6,7 @@ import { showToast } from '../components/Toast'
 
 interface ExportOptions {
   isHighQuality?: boolean
+  isLowQuality?: boolean
   onProgress?: (current: number, total: number) => void
   pagesMetadata?: Array<{ title: string; projectName: string; subProjectName: string }>
   template?: TemplateType
@@ -19,7 +20,7 @@ export async function exportToPDF(
   metadata: { title: string; projectName: string; subProjectName: string },
   options: ExportOptions = {}
 ): Promise<void> {
-  const { isHighQuality = false, onProgress, template } = options
+  const { isHighQuality = false, isLowQuality = false, onProgress, template } = options
 
   // 가로형 템플릿 여부 확인
   const isLandscape = template?.includes('-landscape') ?? false
@@ -28,10 +29,11 @@ export async function exportToPDF(
   const A4_WIDTH_MM = isLandscape ? 297 : 210
   const A4_HEIGHT_MM = isLandscape ? 210 : 297
 
-  // devicePixelRatio를 고려하여 scale 계산 (기본: 4.8, 고화질: 7.2)
+  // devicePixelRatio를 고려하여 scale 계산 (저화질: 2.4, 기본: 4.8, 고화질: 7.2)
+  // 저화질 출력: 기본 출력(4.8)의 대략 50% = 2.4
   // 기본 출력: 4.8 (수정 없음)
   // 고화질 출력: 기본 출력(4.8)의 약 1.5배 = 7.2
-  const baseScale = isHighQuality ? 7.2 : 4.8
+  const baseScale = isLowQuality ? 2.4 : (isHighQuality ? 7.2 : 4.8)
   const devicePixelRatio = window.devicePixelRatio || 1
   const scale = baseScale * devicePixelRatio
 
@@ -364,7 +366,8 @@ export async function exportToPDF(
         'html2canvas scale': scale.toFixed(2),
         'devicePixelRatio': devicePixelRatio,
         '예상 DPI': calculatedDPI.toFixed(0),
-        'JPEG 품질': isHighQuality ? 0.95 : 0.85,
+        'JPEG 품질': isLowQuality ? 0.6 : (isHighQuality ? 0.95 : 0.85),
+        '저화질 모드': isLowQuality,
         '고화질 모드': isHighQuality,
         'export DOM 렌더링 구조': {
           '<img> 태그 수': imgElements.length,
@@ -505,15 +508,16 @@ export async function exportToJPEG(
   metadata: { title: string; projectName: string; subProjectName: string },
   options: ExportOptions = {}
 ): Promise<void> {
-  const { isHighQuality = false, onProgress, pagesMetadata } = options
+  const { isHighQuality = false, isLowQuality = false, onProgress, pagesMetadata } = options
 
-  // devicePixelRatio를 고려하여 scale 계산 (기본: 4.8, 고화질: 7.2)
+  // devicePixelRatio를 고려하여 scale 계산 (저화질: 2.4, 기본: 4.8, 고화질: 7.2)
+  // 저화질 출력: 기본 출력(4.8)의 대략 50% = 2.4
   // 기본 출력: 4.8 (수정 없음)
   // 고화질 출력: 기본 출력(4.8)의 약 1.5배 = 7.2
-  const baseScale = isHighQuality ? 7.2 : 4.8
+  const baseScale = isLowQuality ? 2.4 : (isHighQuality ? 7.2 : 4.8)
   const devicePixelRatio = window.devicePixelRatio || 1
   const scale = baseScale * devicePixelRatio
-  const quality = isHighQuality ? 0.95 : 0.85
+  const quality = isLowQuality ? 0.6 : (isHighQuality ? 0.95 : 0.85)
 
   const totalPages = canvasElements.length
   const failedPages: number[] = []
@@ -826,6 +830,7 @@ export async function exportToJPEG(
         'devicePixelRatio': devicePixelRatio,
         '예상 DPI': calculatedDPI.toFixed(0),
         'JPEG 품질': quality,
+        '저화질 모드': isLowQuality,
         '고화질 모드': isHighQuality,
         'export DOM 렌더링 구조': {
           '<img> 태그 수': imgElements.length,

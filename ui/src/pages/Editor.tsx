@@ -50,6 +50,7 @@ function Editor() {
   const currentPage = pages[currentPageIndex]
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null)
   const [isHighQuality, setIsHighQuality] = useState(false)
+  const [isLowQuality, setIsLowQuality] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   // 텍스트 입력 debounce를 위한 ref
   const descriptionTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -329,6 +330,7 @@ function Editor() {
       // 각 페이지의 메타데이터를 배열로 전달 (PDF는 첫 번째 페이지만 사용하지만, 향후 확장 가능)
       await exportToPDF(canvasElements, pages[0].metadata, {
         isHighQuality,
+        isLowQuality,
         template: template || undefined,
         onProgress: (current, total) => {
           logger.log(`${current}/${total} 페이지 처리 중...`)
@@ -392,6 +394,7 @@ function Editor() {
       // 각 페이지의 메타데이터를 배열로 전달 (JPEG는 각 페이지별로 파일명 생성)
       await exportToJPEG(canvasElements, pages[0].metadata, {
         isHighQuality,
+        isLowQuality,
         template: template || undefined,
         pagesMetadata: pages.map((p) => p.metadata), // 각 페이지별 메타데이터 전달
         onProgress: (current, total) => {
@@ -785,15 +788,32 @@ function Editor() {
                 >
                   {isExporting ? '처리 중...' : 'JPEG 내보내기'}
                 </button>
-                <label className="flex items-center gap-2 text-white">
-                  <input
-                    type="checkbox"
-                    checked={isHighQuality}
-                    onChange={(e) => setIsHighQuality(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span>고화질 출력</span>
-                </label>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-white">
+                    <input
+                      type="checkbox"
+                      checked={isHighQuality}
+                      onChange={(e) => {
+                        setIsHighQuality(e.target.checked)
+                        if (e.target.checked) setIsLowQuality(false)
+                      }}
+                      className="rounded"
+                    />
+                    <span>고화질 출력</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-white">
+                    <input
+                      type="checkbox"
+                      checked={isLowQuality}
+                      onChange={(e) => {
+                        setIsLowQuality(e.target.checked)
+                        if (e.target.checked) setIsHighQuality(false)
+                      }}
+                      className="rounded"
+                    />
+                    <span>저화질 출력</span>
+                  </label>
+                </div>
               </div>
             </div>
 
